@@ -11,41 +11,35 @@ const STORAGE_KEY = 'personal-cfo-data';
 // Cap on messages sent to the API per request (full history is always kept in storage/UI)
 const MAX_HISTORY_MESSAGES = 24;
 
+// NOTE: this seed is a generic starting template only. It contains no real
+// personal data — your actual figures live in your browser's localStorage
+// once you enter them via Update/Setup (or paste an exported JSON backup).
 const seed = {
   baseCurrency: 'AED',
   fxRates: { GBP: 4.924, USD: 3.6725 },
 
   accounts: [
-    { id: 'acc1', name: 'NatWest (UK)', type: 'asset', currency: 'GBP' },
-    { id: 'acc2', name: 'Emirates NBD Liv - Current', type: 'asset', currency: 'AED' },
-    { id: 'acc3', name: 'Emirates NBD Liv - Savings', type: 'asset', currency: 'AED' },
+    { id: 'acc1', name: 'UK current account', type: 'asset', currency: 'GBP' },
+    { id: 'acc2', name: 'Everyday account', type: 'asset', currency: 'AED' },
+    { id: 'acc3', name: 'Savings account', type: 'asset', currency: 'AED' },
   ],
 
   portfolio: [
-    { id: 'p1', product: 'Nutmeg ISA', country: 'UK', currency: 'GBP', risk: 'Balanced' },
-    { id: 'p2', product: 'Sarwa Invest', country: 'UAE', currency: 'USD', risk: 'Balanced' },
-    { id: 'p3', product: 'NS&I', country: 'UK', currency: 'GBP', risk: 'Low' },
-    { id: 'p4', product: 'Wio Savings', country: 'UAE', currency: 'AED', risk: 'Low' },
-    { id: 'p5', product: 'Zurich DEWS', country: 'UAE', currency: 'USD', risk: 'Balanced' },
-    { id: 'p6', product: 'DFM Spinneys', country: 'UAE', currency: 'AED', risk: 'Low' },
-    { id: 'p7', product: 'SwissBorg Crypto', country: 'UAE', currency: 'GBP', risk: 'High' },
-    { id: 'mqe58qbczh2do', product: 'Property Equity', country: 'UK', currency: 'GBP', risk: 'Low', illiquid: true },
+    { id: 'p1', product: 'Investment account 1', country: 'UK', currency: 'GBP', risk: 'Balanced' },
+    { id: 'p2', product: 'Investment account 2', country: 'UAE', currency: 'USD', risk: 'Balanced' },
+    { id: 'p3', product: 'Savings / bonds', country: 'UK', currency: 'GBP', risk: 'Low' },
+    { id: 'p4', product: 'Local savings account', country: 'UAE', currency: 'AED', risk: 'Low' },
+    { id: 'mqe58qbczh2do', product: 'Property', country: 'UK', currency: 'GBP', risk: 'Low', illiquid: true },
   ],
 
   goals: [
-    { id: 'g1', name: 'Emergency fund', target: 50000, current: 50000, targetDate: '' },
+    { id: 'g1', name: 'Emergency fund', target: 0, current: 0, targetDate: '' },
   ],
 
-  // Recurring income / outflows identified from statement analysis
   recurringItems: [
-    { id: 'r1', name: 'Salary (DTB payroll, Business Systems House FZ LLC)', amount: 56457, currency: 'AED', frequency: 'monthly', direction: 'in', account: 'Emirates NBD Liv - Current', category: 'Income' },
-    { id: 'r2', name: 'Careem Pay to Caroline', amount: 23000, currency: 'AED', frequency: 'monthly', direction: 'out', account: 'Emirates NBD Liv - Current', category: 'Transfers', notes: 'Routes via Careem Pay to NatWest, then on via standing order to Caroline Ross (UK)' },
-    { id: 'r5', name: 'Purcell Architectu (income)', amount: 1323, currency: 'GBP', frequency: 'monthly', direction: 'in', account: 'NatWest (UK)', category: 'Income' },
-    { id: 'r6', name: 'Rent (paid)', amount: 5700, currency: 'AED', frequency: 'monthly', direction: 'out', account: 'Emirates NBD Liv - Current', category: 'Housing' },
-    { id: 'r7', name: 'Arabia Insurance (standing order)', amount: 285, currency: 'AED', frequency: 'monthly', direction: 'out', account: 'Emirates NBD Liv - Current', category: 'Insurance' },
-    { id: 'r8', name: 'NatWest account fee', amount: 20, currency: 'GBP', frequency: 'monthly', direction: 'out', account: 'NatWest (UK)', category: 'Bank fees' },
-    { id: 'r9', name: 'Rooster Money (kids)', amount: 20, currency: 'GBP', frequency: 'monthly', direction: 'out', account: 'NatWest (UK)', category: 'Family' },
-    { id: 'r10', name: 'Subscriptions (ChatGPT, Claude, Netflix)', amount: 160, currency: 'AED', frequency: 'monthly', direction: 'out', account: 'Emirates NBD Liv - Current', category: 'Subscriptions' },
+    { id: 'r1', name: 'Salary', amount: 0, currency: 'AED', frequency: 'monthly', direction: 'in', account: 'Everyday account', category: 'Income' },
+    { id: 'r6', name: 'Rent', amount: 0, currency: 'AED', frequency: 'monthly', direction: 'out', account: 'Everyday account', category: 'Housing' },
+    { id: 'r10', name: 'Subscriptions', amount: 0, currency: 'AED', frequency: 'monthly', direction: 'out', account: 'Everyday account', category: 'Subscriptions' },
   ],
 
   knownGaps: [],
@@ -53,43 +47,22 @@ const seed = {
   snapshots: [
     {
       id: 's1',
-      date: '2026-06-14',
-      balances: { acc1: 248.23, acc2: 18834.64, acc3: 5000 },
-      portfolioValues: { p1: 5772, p2: 27043, p3: 38000, p4: 86345, p5: 16565, p6: 2380, p7: 2049, mqe58qbczh2do: 317000 },
+      date: new Date().toISOString().slice(0, 10),
+      balances: { acc1: 0, acc2: 0, acc3: 0 },
+      portfolioValues: { p1: 0, p2: 0, p3: 0, p4: 0, mqe58qbczh2do: 0 },
       fxRates: { GBP: 4.924, USD: 3.6725 },
-      note: 'UK household-bills account (destination of the ~£4,504/month standing order to Caroline Ross) Is a Santander bank account that is separate to the others mentioned previously. It basically holds these funds and then standing orders and direct debits come out of it; for things like school fees, household bills etc. to does not hold any cash, and in theory just breaks even and operates as a bill paying account.',
-      netRecurring: { in: 62972, out: 29342 },
+      note: 'Starter template — enter your real balances via Update, or paste an exported JSON backup via Setup.',
+      netRecurring: { in: 0, out: 0 },
     },
   ],
 
-  lifeLog: [
-    {
-      id: 'mqe3qxsr95mnr',
-      date: '2026-06-14',
-      text: 'NatWest is a joint account — full balance counts as family wealth\nProperty tracked at full equity on James\'s dashboard on behalf of the family\nIFA engaged in UK for property sale proceeds deployment\nDashboard base currency: GBP (with AED in brackets)\nRedundancy date: 31 August 2026\nJanuary 2027 is the decision point for UAE vs UK return\nTarget UK tax year start for return: 6 April 2027',
-    },
-    {
-      id: 'mqe4ufl5500a4',
-      date: '2026-06-14',
-      text: 'Property value GBP517000\nOutstanding mortgage (if any) GBP200,000\nWhose name it\'s in (joint / Caroline / James) Joint\nWhether it\'s the family home or investment property Family home\nCurrent status (being sold, retained, etc.) being sold',
-    },
-    {
-      id: 'mqe4yfvitikam',
-      date: '2026-06-14',
-      text: 'I have taken advice form a UK IFA about the funds from the sale once they arrive. Expected sale date of the house is within 4 months',
-    },
-    {
-      id: 'mqe6i03u4a58l',
-      date: '2026-06-14',
-      text: 'UK household-bills account (destination of the ~£4,504/month standing order to Caroline Ross) Is a Santander bank account that is separate to the others mentioned previously. It basically holds these funds and then standing orders and direct debits come out of it; for things like school fees, household bills etc. to does not hold any cash, and in theory just breaks even and operates as a bill paying account.',
-    },
-  ],
+  lifeLog: [],
 
   chat: [
     {
       role: 'assistant',
       content:
-        "## Baseline set\n\nI've got your full picture as of 14/06/2026:\n\n- **Net worth: ≈ AED 499,600 (≈ £101,460)**\n- Cash & buffer: ≈ AED 25,060 (5%) — NatWest £248, Liv Current AED 18,835, Liv Savings AED 5,000\n- Portfolio: ≈ AED 474,500 (95%) — split roughly 58% Low / 40% Balanced / 2% High risk, with heavy GBP/USD exposure relative to your AED income\n\nFrom the statements, I've also logged your recurring patterns — salary, the Careem Pay → Caroline Ross flow, rent, insurance, subscriptions and more (see **Recurring** on the dashboard).\n\nOne open item: the UK account that actually pays household bills (fed by the ~£4,500/month from Caroline Ross) isn't tracked yet — let me know if/when you can get a balance for it.\n\nAsk me anything, or use **Update** once a month to log new balances and tell me what's going on in your life — I'll factor it in.",
+        "## Welcome to your Personal CFO\n\nThis is a starter template — no real data is loaded yet.\n\nGo to **Update** to enter your account balances, portfolio values, and recurring income/outflows, or use **Setup** to paste in a previously exported JSON backup.\n\nOnce your numbers are in, ask me anything — I can review your position, talk through your risk allocation, or help with planning.",
     },
   ],
 };
