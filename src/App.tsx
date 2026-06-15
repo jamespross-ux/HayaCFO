@@ -449,6 +449,8 @@ export default function App() {
   const [updateForm, setUpdateForm] = useState(null);
   const [lifeNoteDraft, setLifeNoteDraft] = useState('');
   const [exportCopied, setExportCopied] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importStatus, setImportStatus] = useState(null); // null | 'success' | 'error'
   const [attachment, setAttachment] = useState(null);
   const [attachError, setAttachError] = useState(null);
   const chatEndRef = useRef(null);
@@ -572,6 +574,24 @@ export default function App() {
     }
     setExportCopied(true);
     setTimeout(() => setExportCopied(false), 2000);
+  };
+
+  const importData = () => {
+    try {
+      const parsed = JSON.parse(importText);
+      if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.accounts)) {
+        throw new Error('Missing expected fields');
+      }
+      const merged = { ...seed, ...parsed };
+      persist(merged);
+      setUpdateForm(makeUpdateForm(merged));
+      setImportText('');
+      setImportStatus('success');
+      setTimeout(() => setImportStatus(null), 3000);
+    } catch (e) {
+      setImportStatus('error');
+      setTimeout(() => setImportStatus(null), 3000);
+    }
   };
 
   async function handleFileSelect(e) {
@@ -1108,6 +1128,26 @@ export default function App() {
                 {exportCopied ? <Check size={15} /> : <Copy size={15} />}
                 {exportCopied ? 'Copied to clipboard' : 'Copy full data as JSON'}
               </button>
+            </div>
+
+            <div className="card">
+              <div className="card-title">Import / restore</div>
+              <p className="muted-text">
+                Paste a previously exported JSON backup here to restore your accounts, portfolio, snapshots, life
+                log, and chat history. This replaces your current data on this device.
+              </p>
+              <textarea
+                className="input"
+                rows={4}
+                placeholder="Paste exported JSON here…"
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+              />
+              <button className="btn-primary" onClick={importData} disabled={!importText.trim()}>
+                <Sparkles size={15} /> Import data
+              </button>
+              {importStatus === 'success' && <p className="muted-text pos">Imported successfully.</p>}
+              {importStatus === 'error' && <p className="muted-text neg">Couldn't parse that — check it's valid JSON exported from this app.</p>}
             </div>
 
             <div className="card">
