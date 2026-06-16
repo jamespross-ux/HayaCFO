@@ -809,7 +809,7 @@ export default function App() {
             <div className="masthead-split">Cash {fmtGBPAED(cashNow, fxRates)} · Portfolio {fmtGBPAED(liquidPortNow, fxRates)}</div>
             {illiquidNow > 0 && (
               <div className="masthead-split">
-                + {fmtGBPAED(illiquidNow, fxRates)} illiquid (property) · total {fmtGBPAED(nwNow, fxRates)}
+                + {fmtGBPAED(illiquidNow, fxRates)} illiquid ({portfolio.filter((h) => h.illiquid).map((h) => h.product).join(', ')}) · total {fmtGBPAED(nwNow, fxRates)}
               </div>
             )}
           </div>
