@@ -5,6 +5,7 @@ import {
 import {
   LayoutDashboard, MessageCircle, NotebookPen, Settings2, Send, Plus, Trash2,
   ChevronDown, ChevronUp, Sparkles, Copy, Check, Paperclip, X, FileText,
+  Eye, EyeOff,
 } from 'lucide-react';
 
 const STORAGE_KEY = 'personal-cfo-data';
@@ -451,6 +452,7 @@ export default function App() {
   const [exportCopied, setExportCopied] = useState(false);
   const [importText, setImportText] = useState('');
   const [importStatus, setImportStatus] = useState(null); // null | 'success' | 'error'
+  const [showFigures, setShowFigures] = useState(true);
   const [attachment, setAttachment] = useState(null);
   const [attachError, setAttachError] = useState(null);
   const chatEndRef = useRef(null);
@@ -778,9 +780,19 @@ export default function App() {
       <style>{baseCSS}</style>
 
       <header className="masthead">
-        <div className="masthead-eyebrow">Personal CFO</div>
+        <div className="masthead-eyebrow">
+          Personal CFO
+          <button
+            className="icon-btn"
+            onClick={() => setShowFigures((v) => !v)}
+            title={showFigures ? 'Hide figures' : 'Show figures'}
+            style={{ marginLeft: 10, opacity: 0.7 }}
+          >
+            {showFigures ? <EyeOff size={13} /> : <Eye size={13} />}
+          </button>
+        </div>
         <div className="masthead-main">
-          <div>
+          <div style={{ filter: showFigures ? 'none' : 'blur(8px)', userSelect: showFigures ? 'auto' : 'none', transition: 'filter 0.2s' }}>
             <div className="masthead-figure">
               {fmtGBP(liquidNwNow, fxRates)}
               <span className="masthead-figure-secondary"> ({fmt(liquidNwNow, 'AED')})</span>
