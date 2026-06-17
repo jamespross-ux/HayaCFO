@@ -1,0 +1,34 @@
+# Personal CFO — Source Available License
+
+Copyright (c) 2026 James Ross
+
+## Permitted Use
+
+You are free to:
+- Use this software for **personal, non-commercial purposes**
+- Deploy your own private instance for personal financial management
+- Study, modify, and adapt the code for personal use
+- Share the code with others, provided this licence is included
+
+## Restrictions
+
+You may **not**:
+- Use this software, or any derivative of it, for commercial purposes
+- Sell, license, or monetise this software or any product built from it
+- Offer it as a hosted service to paying customers
+- Remove or alter this licence notice
+
+## Commercial Licensing
+
+If you wish to use this software commercially, please contact the author
+to discuss a commercial licence arrangement.
+
+## No Warranty
+
+This software is provided "as is", without warranty of any kind. The author
+accepts no liability for any damages arising from its use.
+
+---
+
+*Built with Claude · Deployed on Vercel · Because managing your own finances
+shouldn't require a wealth manager.*
