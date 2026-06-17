@@ -1,12 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import {
   LayoutDashboard, MessageCircle, NotebookPen, Settings2, Send, Plus, Trash2,
   ChevronDown, ChevronUp, Sparkles, Copy, Check, Paperclip, X, FileText,
-  Eye, EyeOff,
+  Eye, EyeOff, LogOut,
 } from 'lucide-react';
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 const STORAGE_KEY = 'personal-cfo-data';
 // Cap on messages sent to the API per request (full history is always kept in storage/UI)
@@ -442,6 +448,12 @@ const INTERVIEW_PROMPT =
   "Based on everything you currently know about my accounts, portfolio, recurring cash flows, goals, and the known gaps — interview me with around 10 specific questions that would help you understand my situation better and give sharper recommendations going forward. Ground the questions in my actual numbers and items where relevant (e.g. specific holdings, the Caroline Ross flow, NS&I, my goals) rather than generic finance questions. List them all now, numbered, and I'll answer through as many as I can.";
 
 export default function App() {
+  const [session, setSession] = useState(undefined); // undefined = loading, null = logged out
+  const [authEmail, setAuthEmail] = useState('');
+  const [authSent, setAuthSent] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState(null);
+
   const [data, setData] = useState(null);
   const [tab, setTab] = useState('dashboard');
   const [chatInput, setChatInput] = useState('');
@@ -451,26 +463,41 @@ export default function App() {
   const [lifeNoteDraft, setLifeNoteDraft] = useState('');
   const [exportCopied, setExportCopied] = useState(false);
   const [importText, setImportText] = useState('');
-  const [importStatus, setImportStatus] = useState(null); // null | 'success' | 'error'
+  const [importStatus, setImportStatus] = useState(null);
   const [showFigures, setShowFigures] = useState(true);
   const [attachment, setAttachment] = useState(null);
   const [attachError, setAttachError] = useState(null);
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  // --- Auth: listen for session changes ---
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const loaded = JSON.parse(raw);
-        setData({ ...seed, ...loaded });
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session ?? null);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session ?? null);
+      if (!session) { setData(null); setUpdateForm(null); }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // --- Load data from Supabase when session is available ---
+  useEffect(() => {
+    if (!session) return;
+    (async () => {
+      const { data: rows } = await supabase
+        .from('cfo_data')
+        .select('data')
+        .eq('user_id', session.user.id)
+        .single();
+      if (rows?.data) {
+        setData({ ...seed, ...rows.data });
       } else {
         setData(seed);
       }
-    } catch (e) {
-      setData(seed);
-    }
-  }, []);
+    })();
+  }, [session]);
 
   useEffect(() => {
     if (data && !updateForm) setUpdateForm(makeUpdateForm(data));
@@ -482,13 +509,79 @@ export default function App() {
 
   async function persist(newData) {
     setData(newData);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
-    } catch (e) {
-      console.error('Storage error', e);
-    }
+    if (!session) return;
+    await supabase.from('cfo_data').upsert({
+      user_id: session.user.id,
+      data: newData,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' });
   }
 
+  // --- Auth: send magic link ---
+  const sendMagicLink = async () => {
+    setAuthLoading(true);
+    setAuthError(null);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: authEmail,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    setAuthLoading(false);
+    if (error) { setAuthError(error.message); }
+    else { setAuthSent(true); }
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+  };
+
+  // Still determining session
+  if (session === undefined) {
+    return (
+      <div className="loading-screen">
+        <style>{baseCSS}</style>
+        Loading…
+      </div>
+    );
+  }
+
+  // Not logged in — show magic link screen
+  if (!session) {
+    return (
+      <div className="cfo">
+        <style>{baseCSS}</style>
+        <div className="loading-screen" style={{ flexDirection: 'column', gap: 16, padding: 32 }}>
+          <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#7A8699' }}>Personal CFO</div>
+          {!authSent ? (
+            <>
+              <div style={{ fontFamily: 'Fraunces, serif', fontSize: 22, color: '#1B2430', textAlign: 'center' }}>Sign in to your CFO</div>
+              <p style={{ fontSize: 13, color: '#7A8699', textAlign: 'center', margin: 0 }}>Enter your email — we'll send a magic link, no password needed.</p>
+              <input
+                className="input"
+                type="email"
+                placeholder="your@email.com"
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && sendMagicLink()}
+                style={{ maxWidth: 320, width: '100%' }}
+              />
+              {authError && <p style={{ color: '#BD5B3A', fontSize: 12, margin: 0 }}>{authError}</p>}
+              <button className="btn-primary" onClick={sendMagicLink} disabled={authLoading || !authEmail.trim()}>
+                {authLoading ? 'Sending…' : 'Send magic link'}
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ fontFamily: 'Fraunces, serif', fontSize: 22, color: '#1B2430', textAlign: 'center' }}>Check your email</div>
+              <p style={{ fontSize: 13, color: '#7A8699', textAlign: 'center', margin: 0 }}>We've sent a sign-in link to <strong>{authEmail}</strong>. Tap it to open your CFO.</p>
+              <button className="btn-secondary" onClick={() => { setAuthSent(false); setAuthEmail(''); }}>Use a different email</button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Logged in but data still loading
   if (!data || !updateForm) {
     return (
       <div className="loading-screen">
@@ -789,6 +882,14 @@ export default function App() {
             style={{ marginLeft: 10, opacity: 0.7 }}
           >
             {showFigures ? <EyeOff size={13} /> : <Eye size={13} />}
+          </button>
+          <button
+            className="icon-btn"
+            onClick={signOut}
+            title="Sign out"
+            style={{ marginLeft: 6, opacity: 0.7 }}
+          >
+            <LogOut size={13} />
           </button>
         </div>
         <div className="masthead-main">
