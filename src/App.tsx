@@ -450,7 +450,8 @@ const INTERVIEW_PROMPT =
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = loading, null = logged out
   const [authEmail, setAuthEmail] = useState('');
-  const [authSent, setAuthSent] = useState(false);
+  const [authPassword, setAuthPassword] = useState('');
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
 
@@ -517,17 +518,15 @@ export default function App() {
     }, { onConflict: 'user_id' });
   }
 
-  // --- Auth: send magic link ---
-  const sendMagicLink = async () => {
+  // --- Auth: email + password ---
+  const handleAuth = async () => {
     setAuthLoading(true);
     setAuthError(null);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: authEmail,
-      options: { emailRedirectTo: window.location.origin },
-    });
+    const { error } = authMode === 'signin'
+      ? await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword })
+      : await supabase.auth.signUp({ email: authEmail, password: authPassword });
     setAuthLoading(false);
-    if (error) { setAuthError(error.message); }
-    else { setAuthSent(true); }
+    if (error) setAuthError(error.message);
   };
 
   const signOut = async () => {
@@ -544,38 +543,41 @@ export default function App() {
     );
   }
 
-  // Not logged in — show magic link screen
+  // Not logged in — show email/password screen
   if (!session) {
     return (
       <div className="cfo">
         <style>{baseCSS}</style>
         <div className="loading-screen" style={{ flexDirection: 'column', gap: 16, padding: 32 }}>
           <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#7A8699' }}>Personal CFO</div>
-          {!authSent ? (
-            <>
-              <div style={{ fontFamily: 'Fraunces, serif', fontSize: 22, color: '#1B2430', textAlign: 'center' }}>Sign in to your CFO</div>
-              <p style={{ fontSize: 13, color: '#7A8699', textAlign: 'center', margin: 0 }}>Enter your email — we'll send a magic link, no password needed.</p>
-              <input
-                className="input"
-                type="email"
-                placeholder="your@email.com"
-                value={authEmail}
-                onChange={(e) => setAuthEmail(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && sendMagicLink()}
-                style={{ maxWidth: 320, width: '100%' }}
-              />
-              {authError && <p style={{ color: '#BD5B3A', fontSize: 12, margin: 0 }}>{authError}</p>}
-              <button className="btn-primary" onClick={sendMagicLink} disabled={authLoading || !authEmail.trim()}>
-                {authLoading ? 'Sending…' : 'Send magic link'}
-              </button>
-            </>
-          ) : (
-            <>
-              <div style={{ fontFamily: 'Fraunces, serif', fontSize: 22, color: '#1B2430', textAlign: 'center' }}>Check your email</div>
-              <p style={{ fontSize: 13, color: '#7A8699', textAlign: 'center', margin: 0 }}>We've sent a sign-in link to <strong>{authEmail}</strong>. Tap it to open your CFO.</p>
-              <button className="btn-secondary" onClick={() => { setAuthSent(false); setAuthEmail(''); }}>Use a different email</button>
-            </>
-          )}
+          <div style={{ fontFamily: 'Fraunces, serif', fontSize: 22, color: '#1B2430', textAlign: 'center' }}>
+            {authMode === 'signin' ? 'Sign in to your CFO' : 'Create your account'}
+          </div>
+          <input
+            className="input"
+            type="email"
+            placeholder="Email"
+            value={authEmail}
+            onChange={(e) => setAuthEmail(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAuth()}
+            style={{ maxWidth: 320, width: '100%' }}
+          />
+          <input
+            className="input"
+            type="password"
+            placeholder="Password"
+            value={authPassword}
+            onChange={(e) => setAuthPassword(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAuth()}
+            style={{ maxWidth: 320, width: '100%' }}
+          />
+          {authError && <p style={{ color: '#BD5B3A', fontSize: 12, margin: 0 }}>{authError}</p>}
+          <button className="btn-primary" onClick={handleAuth} disabled={authLoading || !authEmail.trim() || !authPassword.trim()}>
+            {authLoading ? '…' : authMode === 'signin' ? 'Sign in' : 'Create account'}
+          </button>
+          <button className="btn-secondary" onClick={() => { setAuthMode(authMode === 'signin' ? 'signup' : 'signin'); setAuthError(null); }}>
+            {authMode === 'signin' ? 'First time? Create account' : 'Already have an account? Sign in'}
+          </button>
         </div>
       </div>
     );
