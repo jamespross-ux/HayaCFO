@@ -77,8 +77,11 @@ const seed = {
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
-const fmt = (n, currency) =>
-  `${currency} ${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+const CURRENCY_SYMBOLS = { GBP: '£', USD: '$', EUR: '€', AED: 'AED ', INR: '₹', SGD: 'S$', CAD: 'C$', AUD: 'A$', SAR: 'SAR ', QAR: 'QAR ', CHF: 'CHF ', JPY: '¥', HKD: 'HK$', NZD: 'NZ$', ZAR: 'R' };
+const fmt = (n, currency) => {
+  const symbol = CURRENCY_SYMBOLS[currency] || `${currency} `;
+  return `${symbol}${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+};
 
 // Display a base-currency (AED) amount as GBP primary, AED in brackets —
 // Display formatters — data is always stored in baseCurrency (AED).
