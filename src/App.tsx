@@ -929,40 +929,57 @@ export default function App() {
 
       <header className="masthead">
         <div className="masthead-eyebrow">
-          Personal CFO
+          <span>Personal CFO</span>
           <button
-            className="icon-btn"
+            className="masthead-eye-btn"
             onClick={() => setShowFigures((v) => !v)}
             title={showFigures ? 'Hide figures' : 'Show figures'}
-            style={{ marginLeft: 10, opacity: 0.7 }}
           >
-            {showFigures ? <EyeOff size={13} /> : <Eye size={13} />}
+            {showFigures ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         </div>
-        <div className="masthead-main">
-          <div style={{ filter: showFigures ? 'none' : 'blur(8px)', userSelect: showFigures ? 'auto' : 'none', transition: 'filter 0.2s' }}>
-            <div className="masthead-figure">
-              {fmtD(liquidNwNow)}
-              <span className="masthead-figure-secondary"> ({fmt(liquidNwNow, baseCurrency)})</span>
-            </div>
-            <div className="masthead-sub">
-              {delta !== null ? (
-                <span className={delta >= 0 ? 'pos' : 'neg'}>
-                  {delta >= 0 ? '▲' : '▼'} {fmtDS(Math.abs(delta))} since last update
-                </span>
-              ) : (
-                'Liquid net worth'
-              )}
-            </div>
-            <div className="masthead-split">Cash {fmtDS(cashNow)} · Portfolio {fmtDS(liquidPortNow)}</div>
-            {illiquidNow > 0 && (
-              <div className="masthead-split">
-                + {fmtDS(illiquidNow)} illiquid ({portfolio.filter((h) => h.illiquid).map((h) => h.product).join(', ')}) · total {fmtDS(nwNow)}
-              </div>
+
+        <div style={{ filter: showFigures ? 'none' : 'blur(8px)', userSelect: showFigures ? 'auto' : 'none', transition: 'filter 0.2s' }}>
+          <div className="masthead-label">Liquid net worth</div>
+          <div className="masthead-hero">{fmtD(liquidNwNow)}</div>
+          <div className="masthead-sub-row">
+            <span className="masthead-secondary">{fmt(liquidNwNow, baseCurrency)}</span>
+            {delta !== null && (
+              <span className={`masthead-delta ${delta >= 0 ? 'pos' : 'neg'}`}>
+                {delta >= 0 ? '▲' : '▼'} {fmtD(Math.abs(delta))} since last update
+              </span>
             )}
           </div>
-          <div className="masthead-date">{latest ? `As of ${latest.date}` : 'No data yet'}</div>
+
+          <div className="masthead-grid">
+            <div className="masthead-cell">
+              <div className="masthead-cell-label">Cash</div>
+              <div className="masthead-cell-value">{fmtD(cashNow)}</div>
+              <div className="masthead-cell-secondary">{fmt(cashNow, baseCurrency)}</div>
+            </div>
+            <div className="masthead-cell">
+              <div className="masthead-cell-label">Portfolio</div>
+              <div className="masthead-cell-value">{fmtD(liquidPortNow)}</div>
+              <div className="masthead-cell-secondary">{fmt(liquidPortNow, baseCurrency)}</div>
+            </div>
+            {illiquidNow > 0 && (
+              <div className="masthead-cell">
+                <div className="masthead-cell-label">Illiquid</div>
+                <div className="masthead-cell-value">{fmtD(illiquidNow)}</div>
+                <div className="masthead-cell-secondary">
+                  {portfolio.filter((h) => h.illiquid).map((h) => h.product).join(' · ')}
+                </div>
+              </div>
+            )}
+            <div className="masthead-cell masthead-cell-total">
+              <div className="masthead-cell-label" style={{ color: '#C9A24A' }}>Total</div>
+              <div className="masthead-cell-value">{fmtD(nwNow)}</div>
+              <div className="masthead-cell-secondary">{fmt(nwNow, baseCurrency)}</div>
+            </div>
+          </div>
         </div>
+
+        <div className="masthead-date">{latest ? `As of ${latest.date}` : 'No data yet'}</div>
       </header>
 
       <nav className="tabs">
@@ -994,26 +1011,6 @@ export default function App() {
                 </ResponsiveContainer>
               </div>
             )}
-
-            <div className="stat-row">
-              <div className="stat-card">
-                <div className="stat-label">Cash &amp; buffer</div>
-                <div className="stat-value">{fmtD(cashNow)}</div>
-                <div className="stat-sub">{fmt(cashNow, baseCurrency)}</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-label">Portfolio (liquid)</div>
-                <div className="stat-value">{fmtD(liquidPortNow)}</div>
-                <div className="stat-sub">{fmt(liquidPortNow, baseCurrency)}</div>
-              </div>
-              {illiquidNow > 0 && (
-                <div className="stat-card">
-                  <div className="stat-label">Property (illiquid)</div>
-                  <div className="stat-value">{fmtD(illiquidNow)}</div>
-                  <div className="stat-sub">{fmt(illiquidNow, baseCurrency)}</div>
-                </div>
-              )}
-            </div>
 
             <div className="card">
               <div className="card-title">Accounts</div>
@@ -1474,45 +1471,103 @@ const baseCSS = `
 .masthead {
   background: #101C2E;
   color: #F7F3EA;
-  padding: 22px 20px;
+  padding: 20px 20px 16px;
 }
 .masthead-eyebrow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: #C9A24A;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
 }
-.masthead-main {
+.masthead-eye-btn {
+  background: rgba(255,255,255,0.08);
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  color: rgba(247,243,234,0.7);
+  cursor: pointer;
 }
-.masthead-figure {
+.masthead-eye-btn:hover { background: rgba(255,255,255,0.14); }
+.masthead-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(247,243,234,0.5);
+  margin-bottom: 4px;
+}
+.masthead-hero {
   font-family: 'Fraunces', serif;
-  font-size: 32px;
+  font-size: 44px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+}
+.masthead-sub-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.masthead-secondary {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  color: rgba(247,243,234,0.5);
+}
+.masthead-delta {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+}
+.masthead-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.masthead-cell {
+  background: rgba(255,255,255,0.04);
+  padding: 10px 12px;
+}
+.masthead-cell-total {
+  background: rgba(201,162,74,0.10);
+}
+.masthead-cell-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(247,243,234,0.5);
+  margin-bottom: 3px;
+}
+.masthead-cell-value {
+  font-family: 'Fraunces', serif;
+  font-size: 18px;
   font-weight: 600;
 }
-.masthead-figure-secondary {
+.masthead-cell-secondary {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 14px;
-  font-weight: 400;
-  color: rgba(247,243,234,0.55);
-}
-.masthead-sub { font-size: 13px; margin-top: 4px; }
-.masthead-split {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11.5px;
-  color: rgba(247,243,234,0.6);
-  margin-top: 4px;
+  font-size: 10px;
+  color: rgba(247,243,234,0.45);
+  margin-top: 2px;
 }
 .masthead-date {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  color: rgba(247,243,234,0.55);
+  font-size: 10px;
+  color: rgba(247,243,234,0.35);
 }
 
 .tabs {
