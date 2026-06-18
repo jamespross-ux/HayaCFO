@@ -938,25 +938,6 @@ export default function App() {
           >
             {showFigures ? <EyeOff size={13} /> : <Eye size={13} />}
           </button>
-          <button
-            className="icon-btn"
-            onClick={signOut}
-            title="Sign out"
-            style={{ marginLeft: 6, opacity: 0.7 }}
-          >
-            <LogOut size={13} />
-          </button>
-          <select
-            className="input select"
-            value={displayCurrency}
-            onChange={(e) => persist({ ...data, displayCurrency: e.target.value })}
-            style={{ marginLeft: 10, fontSize: 10, padding: '2px 6px', height: 'auto', width: 'auto', fontFamily: 'IBM Plex Mono, monospace' }}
-            title="Display currency"
-          >
-            {['GBP','AED','USD','EUR','INR','SGD','CAD','AUD','SAR','QAR'].map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
         </div>
         <div className="masthead-main">
           <div style={{ filter: showFigures ? 'none' : 'blur(8px)', userSelect: showFigures ? 'auto' : 'none', transition: 'filter 0.2s' }}>
@@ -1442,6 +1423,37 @@ export default function App() {
               ))}
               <button className="btn-secondary" onClick={addKnownGap}><Plus size={14} /> Add known gap</button>
               {knownGaps.length === 0 && <p className="muted-text">No open gaps — nice and tidy.</p>}
+            </div>
+
+            <div className="card">
+              <div className="card-title">Display currency</div>
+              <p className="muted-text">Choose which currency to show as the headline figure. Your data stays in {baseCurrency} — this is a display preference only.</p>
+              <div className="row">
+                <div style={{ flex: 1 }}>
+                  <div className="section-label">Primary</div>
+                  <select className="input select" value={displayCurrency} onChange={(e) => persist({ ...data, displayCurrency: e.target.value })}>
+                    {['GBP','AED','USD','EUR','INR','SGD','CAD','AUD','SAR','QAR','CHF','JPY','HKD','NZD','ZAR'].map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div className="section-label">Secondary (brackets)</div>
+                  <select className="input select" value={displaySecondaryCurrency} onChange={(e) => persist({ ...data, displaySecondaryCurrency: e.target.value })}>
+                    {['AED','GBP','USD','EUR','INR','SGD','CAD','AUD','SAR','QAR','CHF','JPY','HKD','NZD','ZAR'].map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="card-title">Account</div>
+              <p className="muted-text">Signed in as {session?.user?.email}</p>
+              <button className="btn-secondary" onClick={signOut} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <LogOut size={14} /> Sign out
+              </button>
             </div>
           </div>
         )}
