@@ -179,7 +179,7 @@ function buildSystemPrompt(data) {
   );
   lines.push('');
   lines.push(`=== CURRENT FINANCIAL POSITION (as of ${latest?.date || 'no snapshot yet'}) ===`);
-  lines.push(`Base currency (data): ${baseCurrency}. Display: ${displayCurrency} headline, ${displaySecondaryCurrency} in brackets. Key FX rates: ${Object.entries(fxRates || {}).map(([k,v]) => `1 ${k} = ${v} ${baseCurrency}`).join(', ')}.`);
+  lines.push(`Base currency (data): ${baseCurrency}. Display: ${displayCurrency} headline, ${baseCurrency} in brackets. Key FX rates: ${Object.entries(fxRates || {}).map(([k,v]) => `1 ${k} = ${v} ${baseCurrency}`).join(', ')}.`);
   lines.push(`Liquid net worth: ${fmt(liquidNw, baseCurrency)} (cash/accounts ${fmt(cash, baseCurrency)}, liquid portfolio ${fmt(liquidPort, baseCurrency)}) — this is the headline figure on the dashboard.`);
   if (illiquidPort > 0) {
     lines.push(`Illiquid assets (excluded from the headline figure): ${fmt(illiquidPort, baseCurrency)}. Total net worth including these: ${fmt(nw, baseCurrency)}.`);
@@ -639,9 +639,9 @@ export default function App() {
 
   const { baseCurrency, displayCurrency = 'GBP', displaySecondaryCurrency = 'AED', accounts, portfolio, goals, recurringItems, knownGaps, snapshots, lifeLog, fxRates, chat } = data;
 
-  // Display-only formatters — wired to user's display currency preference
+  // Display-only formatters — primary is user's display preference, secondary always baseCurrency
   const fmtD = (v) => fmtGBP(v, fxRates, displayCurrency);
-  const fmtDS = (v) => fmtGBPAED(v, fxRates, displayCurrency, displaySecondaryCurrency);
+  const fmtDS = (v) => fmtGBPAED(v, fxRates, displayCurrency, baseCurrency);
   const sortedSnaps = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
   const latest = sortedSnaps[sortedSnaps.length - 1];
   const previous = sortedSnaps[sortedSnaps.length - 2];
@@ -943,7 +943,7 @@ export default function App() {
           <div style={{ filter: showFigures ? 'none' : 'blur(8px)', userSelect: showFigures ? 'auto' : 'none', transition: 'filter 0.2s' }}>
             <div className="masthead-figure">
               {fmtD(liquidNwNow)}
-              <span className="masthead-figure-secondary"> ({fmt(displaySecondaryCurrency === baseCurrency ? liquidNwNow : liquidNwNow / (fxRates?.[displaySecondaryCurrency] || 1), displaySecondaryCurrency)})</span>
+              <span className="masthead-figure-secondary"> ({fmt(liquidNwNow, baseCurrency)})</span>
             </div>
             <div className="masthead-sub">
               {delta !== null ? (
@@ -999,18 +999,18 @@ export default function App() {
               <div className="stat-card">
                 <div className="stat-label">Cash &amp; buffer</div>
                 <div className="stat-value">{fmtD(cashNow)}</div>
-                <div className="stat-sub">{fmt(displaySecondaryCurrency === baseCurrency ? cashNow : cashNow / (fxRates?.[displaySecondaryCurrency] || 1), displaySecondaryCurrency)}</div>
+                <div className="stat-sub">{fmt(cashNow, baseCurrency)}</div>
               </div>
               <div className="stat-card">
                 <div className="stat-label">Portfolio (liquid)</div>
                 <div className="stat-value">{fmtD(liquidPortNow)}</div>
-                <div className="stat-sub">{fmt(displaySecondaryCurrency === baseCurrency ? liquidPortNow : liquidPortNow / (fxRates?.[displaySecondaryCurrency] || 1), displaySecondaryCurrency)}</div>
+                <div className="stat-sub">{fmt(liquidPortNow, baseCurrency)}</div>
               </div>
               {illiquidNow > 0 && (
                 <div className="stat-card">
                   <div className="stat-label">Property (illiquid)</div>
                   <div className="stat-value">{fmtD(illiquidNow)}</div>
-                  <div className="stat-sub">{fmt(displaySecondaryCurrency === baseCurrency ? illiquidNow : illiquidNow / (fxRates?.[displaySecondaryCurrency] || 1), displaySecondaryCurrency)}</div>
+                  <div className="stat-sub">{fmt(illiquidNow, baseCurrency)}</div>
                 </div>
               )}
             </div>
@@ -1058,12 +1058,12 @@ export default function App() {
                 <div className="stat-card">
                   <div className="stat-label">Income</div>
                   <div className="stat-value pos">{fmtD(totalIn)}</div>
-                  <div className="stat-sub">{fmt(displaySecondaryCurrency === baseCurrency ? totalIn : totalIn / (fxRates?.[displaySecondaryCurrency] || 1), displaySecondaryCurrency)}</div>
+                  <div className="stat-sub">{fmt(totalIn, baseCurrency)}</div>
                 </div>
                 <div className="stat-card">
                   <div className="stat-label">Outflows</div>
                   <div className="stat-value neg">{fmtD(totalOut)}</div>
-                  <div className="stat-sub">{fmt(displaySecondaryCurrency === baseCurrency ? totalOut : totalOut / (fxRates?.[displaySecondaryCurrency] || 1), displaySecondaryCurrency)}</div>
+                  <div className="stat-sub">{fmt(totalOut, baseCurrency)}</div>
                 </div>
                 <div className="stat-card">
                   <div className="stat-label">Net</div>
@@ -1428,24 +1428,12 @@ export default function App() {
             <div className="card">
               <div className="card-title">Display currency</div>
               <p className="muted-text">Choose which currency to show as the headline figure. Your data stays in {baseCurrency} — this is a display preference only.</p>
-              <div className="row">
-                <div style={{ flex: 1 }}>
-                  <div className="section-label">Primary</div>
-                  <select className="input select" value={displayCurrency} onChange={(e) => persist({ ...data, displayCurrency: e.target.value })}>
-                    {['GBP','AED','USD','EUR','INR','SGD','CAD','AUD','SAR','QAR','CHF','JPY','HKD','NZD','ZAR'].map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div className="section-label">Secondary (brackets)</div>
-                  <select className="input select" value={displaySecondaryCurrency} onChange={(e) => persist({ ...data, displaySecondaryCurrency: e.target.value })}>
-                    {['AED','GBP','USD','EUR','INR','SGD','CAD','AUD','SAR','QAR','CHF','JPY','HKD','NZD','ZAR'].map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              <select className="input select" value={displayCurrency} onChange={(e) => persist({ ...data, displayCurrency: e.target.value })}>
+                {['GBP','AED','USD','EUR','INR','SGD','CAD','AUD','SAR','QAR','CHF','JPY','HKD','NZD','ZAR'].map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <p className="muted-text">{baseCurrency} always shown in brackets alongside.</p>
             </div>
 
             <div className="card">
