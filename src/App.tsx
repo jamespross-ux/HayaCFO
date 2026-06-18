@@ -24,6 +24,8 @@ const MAX_HISTORY_MESSAGES = 24;
 const seed = {
   baseCurrency: 'AED',
   secondaryCurrency: 'GBP',
+  displayCurrency: 'GBP',
+  displaySecondaryCurrency: 'AED',
   fxRates: { GBP: 4.924, USD: 3.6725 },
 
   accounts: [
@@ -83,20 +85,24 @@ const fmt = (n, currency) => {
   return `${symbol}${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 };
 
-// Display a base-currency (AED) amount as GBP primary, AED in brackets —
 // Display formatters — data is always stored in baseCurrency (AED).
-// Dashboard always presents GBP as headline, AED in brackets.
-// These are display-only; no data is ever stored in GBP.
-const DISPLAY_PRIMARY = 'GBP';
-const DISPLAY_SECONDARY = 'AED';
+// Display currencies are a pure UI preference stored in data.displayCurrency / data.displaySecondaryCurrency.
+// No financial data is ever stored in the display currency.
+const DEFAULT_DISPLAY = 'GBP';
+const DEFAULT_DISPLAY_SECONDARY = 'AED';
 
-const fmtGBP = (amountAED, fxRates) => {
-  const rate = fxRates?.[DISPLAY_PRIMARY] || 1;
-  const val = Number(amountAED || 0) / rate;
-  return fmt(val, DISPLAY_PRIMARY);
+// These are called with display prefs passed in from the App component
+const fmtGBP = (amountBase, fxRates, displayCurrency = DEFAULT_DISPLAY) => {
+  const rate = fxRates?.[displayCurrency] || 1;
+  const val = Number(amountBase || 0) / rate;
+  return fmt(val, displayCurrency);
 };
-const fmtGBPAED = (amountAED, fxRates) =>
-  `${fmtGBP(amountAED, fxRates)} (${fmt(Number(amountAED || 0), DISPLAY_SECONDARY)})`;
+const fmtGBPAED = (amountBase, fxRates, displayCurrency = DEFAULT_DISPLAY, displaySecondary = DEFAULT_DISPLAY_SECONDARY) => {
+  const secVal = displaySecondary === 'AED'
+    ? Number(amountBase || 0)
+    : Number(amountBase || 0) / (fxRates?.[displaySecondary] || 1);
+  return `${fmtGBP(amountBase, fxRates, displayCurrency)} (${fmt(secVal, displaySecondary)})`;
+};
 
 const rateFor = (currency, snapFx, dataFx, base) => {
   if (currency === base) return 1;
@@ -145,7 +151,7 @@ const monthlyInBase = (item, dataFx, base) => {
 };
 
 function buildSystemPrompt(data) {
-  const { baseCurrency, secondaryCurrency = 'GBP', accounts, portfolio, goals, recurringItems, knownGaps, snapshots, lifeLog, fxRates } = data;
+  const { baseCurrency, displayCurrency = 'GBP', displaySecondaryCurrency = 'AED', accounts, portfolio, goals, recurringItems, knownGaps, snapshots, lifeLog, fxRates } = data;
   const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
   const latest = sorted[sorted.length - 1];
 
@@ -173,7 +179,7 @@ function buildSystemPrompt(data) {
   );
   lines.push('');
   lines.push(`=== CURRENT FINANCIAL POSITION (as of ${latest?.date || 'no snapshot yet'}) ===`);
-  lines.push(`Base currency (data): ${baseCurrency}. Display: GBP headline, AED in brackets. Key FX rates: ${Object.entries(fxRates || {}).map(([k,v]) => `1 ${k} = ${v} ${baseCurrency}`).join(', ')}.`);
+  lines.push(`Base currency (data): ${baseCurrency}. Display: ${displayCurrency} headline, ${displaySecondaryCurrency} in brackets. Key FX rates: ${Object.entries(fxRates || {}).map(([k,v]) => `1 ${k} = ${v} ${baseCurrency}`).join(', ')}.`);
   lines.push(`Liquid net worth: ${fmt(liquidNw, baseCurrency)} (cash/accounts ${fmt(cash, baseCurrency)}, liquid portfolio ${fmt(liquidPort, baseCurrency)}) — this is the headline figure on the dashboard.`);
   if (illiquidPort > 0) {
     lines.push(`Illiquid assets (excluded from the headline figure): ${fmt(illiquidPort, baseCurrency)}. Total net worth including these: ${fmt(nw, baseCurrency)}.`);
@@ -631,7 +637,11 @@ export default function App() {
     );
   }
 
-  const { baseCurrency, accounts, portfolio, goals, recurringItems, knownGaps, snapshots, lifeLog, fxRates, chat } = data;
+  const { baseCurrency, displayCurrency = 'GBP', displaySecondaryCurrency = 'AED', accounts, portfolio, goals, recurringItems, knownGaps, snapshots, lifeLog, fxRates, chat } = data;
+
+  // Display-only formatters — wired to user's display currency preference
+  const fmtD = (v) => fmtGBP(v, fxRates, displayCurrency);
+  const fmtDS = (v) => fmtGBPAED(v, fxRates, displayCurrency, displaySecondaryCurrency);
   const sortedSnaps = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
   const latest = sortedSnaps[sortedSnaps.length - 1];
   const previous = sortedSnaps[sortedSnaps.length - 2];
@@ -659,7 +669,12 @@ export default function App() {
       net: s.netRecurring.in - s.netRecurring.out,
     }));
 
-  const fxCurrencies = [...new Set([...accounts.map((a) => a.currency), ...portfolio.map((h) => h.currency)])].filter((c) => c && c !== baseCurrency);
+  const fxCurrencies = [...new Set([
+    ...accounts.map((a) => a.currency),
+    ...portfolio.map((h) => h.currency),
+    displayCurrency,
+    displaySecondaryCurrency,
+  ])].filter((c) => c && c !== baseCurrency);
 
   const incomeItems = recurringItems.filter((r) => r.direction === 'in');
   const outflowItems = recurringItems.filter((r) => r.direction === 'out');
@@ -931,26 +946,37 @@ export default function App() {
           >
             <LogOut size={13} />
           </button>
+          <select
+            className="input select"
+            value={displayCurrency}
+            onChange={(e) => persist({ ...data, displayCurrency: e.target.value })}
+            style={{ marginLeft: 10, fontSize: 10, padding: '2px 6px', height: 'auto', width: 'auto', fontFamily: 'IBM Plex Mono, monospace' }}
+            title="Display currency"
+          >
+            {['GBP','AED','USD','EUR','INR','SGD','CAD','AUD','SAR','QAR'].map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </div>
         <div className="masthead-main">
           <div style={{ filter: showFigures ? 'none' : 'blur(8px)', userSelect: showFigures ? 'auto' : 'none', transition: 'filter 0.2s' }}>
             <div className="masthead-figure">
-              {fmtGBP(liquidNwNow, fxRates)}
-              <span className="masthead-figure-secondary"> ({fmt(liquidNwNow, 'AED')})</span>
+              {fmtD(liquidNwNow)}
+              <span className="masthead-figure-secondary"> ({fmt(displaySecondaryCurrency === baseCurrency ? liquidNwNow : liquidNwNow / (fxRates?.[displaySecondaryCurrency] || 1), displaySecondaryCurrency)})</span>
             </div>
             <div className="masthead-sub">
               {delta !== null ? (
                 <span className={delta >= 0 ? 'pos' : 'neg'}>
-                  {delta >= 0 ? '▲' : '▼'} {fmtGBPAED(Math.abs(delta), fxRates)} since last update
+                  {delta >= 0 ? '▲' : '▼'} {fmtDS(Math.abs(delta))} since last update
                 </span>
               ) : (
                 'Liquid net worth'
               )}
             </div>
-            <div className="masthead-split">Cash {fmtGBPAED(cashNow, fxRates)} · Portfolio {fmtGBPAED(liquidPortNow, fxRates)}</div>
+            <div className="masthead-split">Cash {fmtDS(cashNow)} · Portfolio {fmtDS(liquidPortNow)}</div>
             {illiquidNow > 0 && (
               <div className="masthead-split">
-                + {fmtGBPAED(illiquidNow, fxRates)} illiquid ({portfolio.filter((h) => h.illiquid).map((h) => h.product).join(', ')}) · total {fmtGBPAED(nwNow, fxRates)}
+                + {fmtDS(illiquidNow)} illiquid ({portfolio.filter((h) => h.illiquid).map((h) => h.product).join(', ')}) · total {fmtDS(nwNow)}
               </div>
             )}
           </div>
@@ -991,19 +1017,19 @@ export default function App() {
             <div className="stat-row">
               <div className="stat-card">
                 <div className="stat-label">Cash &amp; buffer</div>
-                <div className="stat-value">{fmtGBP(cashNow, fxRates)}</div>
-                <div className="stat-sub">{fmt(cashNow, 'AED')}</div>
+                <div className="stat-value">{fmtD(cashNow)}</div>
+                <div className="stat-sub">{fmt(displaySecondaryCurrency === baseCurrency ? cashNow : cashNow / (fxRates?.[displaySecondaryCurrency] || 1), displaySecondaryCurrency)}</div>
               </div>
               <div className="stat-card">
                 <div className="stat-label">Portfolio (liquid)</div>
-                <div className="stat-value">{fmtGBP(liquidPortNow, fxRates)}</div>
-                <div className="stat-sub">{fmt(liquidPortNow, 'AED')}</div>
+                <div className="stat-value">{fmtD(liquidPortNow)}</div>
+                <div className="stat-sub">{fmt(displaySecondaryCurrency === baseCurrency ? liquidPortNow : liquidPortNow / (fxRates?.[displaySecondaryCurrency] || 1), displaySecondaryCurrency)}</div>
               </div>
               {illiquidNow > 0 && (
                 <div className="stat-card">
                   <div className="stat-label">Property (illiquid)</div>
-                  <div className="stat-value">{fmtGBP(illiquidNow, fxRates)}</div>
-                  <div className="stat-sub">{fmt(illiquidNow, 'AED')}</div>
+                  <div className="stat-value">{fmtD(illiquidNow)}</div>
+                  <div className="stat-sub">{fmt(displaySecondaryCurrency === baseCurrency ? illiquidNow : illiquidNow / (fxRates?.[displaySecondaryCurrency] || 1), displaySecondaryCurrency)}</div>
                 </div>
               )}
             </div>
@@ -1050,17 +1076,17 @@ export default function App() {
               <div className="stat-row">
                 <div className="stat-card">
                   <div className="stat-label">Income</div>
-                  <div className="stat-value pos">{fmtGBP(totalIn, fxRates)}</div>
-                  <div className="stat-sub">{fmt(totalIn, 'AED')}</div>
+                  <div className="stat-value pos">{fmtD(totalIn)}</div>
+                  <div className="stat-sub">{fmt(displaySecondaryCurrency === baseCurrency ? totalIn : totalIn / (fxRates?.[displaySecondaryCurrency] || 1), displaySecondaryCurrency)}</div>
                 </div>
                 <div className="stat-card">
                   <div className="stat-label">Outflows</div>
-                  <div className="stat-value neg">{fmtGBP(totalOut, fxRates)}</div>
-                  <div className="stat-sub">{fmt(totalOut, 'AED')}</div>
+                  <div className="stat-value neg">{fmtD(totalOut)}</div>
+                  <div className="stat-sub">{fmt(displaySecondaryCurrency === baseCurrency ? totalOut : totalOut / (fxRates?.[displaySecondaryCurrency] || 1), displaySecondaryCurrency)}</div>
                 </div>
                 <div className="stat-card">
                   <div className="stat-label">Net</div>
-                  <div className={`stat-value ${totalIn - totalOut >= 0 ? 'pos' : 'neg'}`}>{fmtGBP(totalIn - totalOut, fxRates)}</div>
+                  <div className={`stat-value ${totalIn - totalOut >= 0 ? 'pos' : 'neg'}`}>{fmtD(totalIn - totalOut)}</div>
                   <div className="stat-sub">{fmt((totalIn - totalOut), 'AED')}</div>
                 </div>
               </div>
