@@ -81,38 +81,19 @@ const fmt = (n, currency) =>
   `${currency} ${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
 // Display a base-currency (AED) amount as GBP primary, AED in brackets —
-// for headline dashboard figures only; underlying calculations stay in AED.
-// Dynamic formatters — take primary/secondary currency from data
-const fmtPrimary = (amountBase, fxRates, primaryCurrency, secondaryCurrency?) => {
-  // amountBase is already in baseCurrency (primary). Convert to primary display if needed.
-  const rate = fxRates?.[primaryCurrency] || 1;
-  const val = primaryCurrency === (secondaryCurrency || 'AED')
-    ? Number(amountBase || 0)
-    : Number(amountBase || 0) / rate;
-  return fmt(val, primaryCurrency);
-};
+// Display formatters — data is always stored in baseCurrency (AED).
+// Dashboard always presents GBP as headline, AED in brackets.
+// These are display-only; no data is ever stored in GBP.
+const DISPLAY_PRIMARY = 'GBP';
+const DISPLAY_SECONDARY = 'AED';
 
-// Show primary (secondary) — e.g. "£12,345 (AED 60,740)"
-const fmtBoth = (amountBase, fxRates, primaryCurrency, secondaryCurrency) => {
-  const secRate = fxRates?.[secondaryCurrency] || 1;
-  const priRate = fxRates?.[primaryCurrency] || 1;
-  // amountBase is in baseCurrency (the data's base, typically the primary)
-  const priVal = Number(amountBase || 0) / priRate;
-  const secVal = Number(amountBase || 0) / secRate * priRate / priRate * secRate;
-  // simpler: primary is base, secondary = amountBase converted
-  const priStr = fmt(Number(amountBase || 0) / (fxRates?.[primaryCurrency] || 1), primaryCurrency);
-  const secStr = fmt(Number(amountBase || 0) / (fxRates?.[secondaryCurrency] || 1), secondaryCurrency);
-  return `${priStr} (${secStr})`;
+const fmtGBP = (amountAED, fxRates) => {
+  const rate = fxRates?.[DISPLAY_PRIMARY] || 1;
+  const val = Number(amountAED || 0) / rate;
+  return fmt(val, DISPLAY_PRIMARY);
 };
-
-// Legacy aliases used throughout — will be replaced inline with dynamic versions
-const fmtGBP = (amountBase, fxRates, primaryCurrency = 'GBP') => {
-  const rate = fxRates?.[primaryCurrency] || 1;
-  const val = Number(amountBase || 0) / rate;
-  return fmt(val, primaryCurrency);
-};
-const fmtGBPAED = (amountBase, fxRates, primaryCurrency = 'GBP', secondaryCurrency = 'AED') =>
-  `${fmtGBP(amountBase, fxRates, primaryCurrency)} (${fmt(Number(amountBase || 0) / (fxRates?.[secondaryCurrency] || 1), secondaryCurrency)})`;
+const fmtGBPAED = (amountAED, fxRates) =>
+  `${fmtGBP(amountAED, fxRates)} (${fmt(Number(amountAED || 0), DISPLAY_SECONDARY)})`;
 
 const rateFor = (currency, snapFx, dataFx, base) => {
   if (currency === base) return 1;
@@ -189,7 +170,7 @@ function buildSystemPrompt(data) {
   );
   lines.push('');
   lines.push(`=== CURRENT FINANCIAL POSITION (as of ${latest?.date || 'no snapshot yet'}) ===`);
-  lines.push(`Primary currency: ${baseCurrency}. Secondary currency: ${secondaryCurrency}. Key FX rates: ${Object.entries(fxRates || {}).map(([k,v]) => `1 ${k} = ${v} ${baseCurrency}`).join(', ')}.`);
+  lines.push(`Base currency (data): ${baseCurrency}. Display: GBP headline, AED in brackets. Key FX rates: ${Object.entries(fxRates || {}).map(([k,v]) => `1 ${k} = ${v} ${baseCurrency}`).join(', ')}.`);
   lines.push(`Liquid net worth: ${fmt(liquidNw, baseCurrency)} (cash/accounts ${fmt(cash, baseCurrency)}, liquid portfolio ${fmt(liquidPort, baseCurrency)}) — this is the headline figure on the dashboard.`);
   if (illiquidPort > 0) {
     lines.push(`Illiquid assets (excluded from the headline figure): ${fmt(illiquidPort, baseCurrency)}. Total net worth including these: ${fmt(nw, baseCurrency)}.`);
@@ -647,11 +628,7 @@ export default function App() {
     );
   }
 
-  const { baseCurrency, secondaryCurrency = 'GBP', accounts, portfolio, goals, recurringItems, knownGaps, snapshots, lifeLog, fxRates, chat } = data;
-
-  // Wired formatters using user's chosen primary/secondary currencies
-  const fmtP = (v) => fmtGBP(v, fxRates, baseCurrency);
-  const fmtPS = (v) => fmtGBPAED(v, fxRates, baseCurrency, secondaryCurrency);
+  const { baseCurrency, accounts, portfolio, goals, recurringItems, knownGaps, snapshots, lifeLog, fxRates, chat } = data;
   const sortedSnaps = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
   const latest = sortedSnaps[sortedSnaps.length - 1];
   const previous = sortedSnaps[sortedSnaps.length - 2];
@@ -955,22 +932,22 @@ export default function App() {
         <div className="masthead-main">
           <div style={{ filter: showFigures ? 'none' : 'blur(8px)', userSelect: showFigures ? 'auto' : 'none', transition: 'filter 0.2s' }}>
             <div className="masthead-figure">
-              {fmtP(liquidNwNow)}
-              <span className="masthead-figure-secondary"> ({fmt(liquidNwNow / (fxRates?.[baseCurrency] || 1) * (fxRates?.[secondaryCurrency] || 1), secondaryCurrency)})</span>
+              {fmtGBP(liquidNwNow, fxRates)}
+              <span className="masthead-figure-secondary"> ({fmt(liquidNwNow, 'AED')})</span>
             </div>
             <div className="masthead-sub">
               {delta !== null ? (
                 <span className={delta >= 0 ? 'pos' : 'neg'}>
-                  {delta >= 0 ? '▲' : '▼'} {fmtPS(Math.abs(delta))} since last update
+                  {delta >= 0 ? '▲' : '▼'} {fmtGBPAED(Math.abs(delta), fxRates)} since last update
                 </span>
               ) : (
                 'Liquid net worth'
               )}
             </div>
-            <div className="masthead-split">Cash {fmtPS(cashNow)} · Portfolio {fmtPS(liquidPortNow)}</div>
+            <div className="masthead-split">Cash {fmtGBPAED(cashNow, fxRates)} · Portfolio {fmtGBPAED(liquidPortNow, fxRates)}</div>
             {illiquidNow > 0 && (
               <div className="masthead-split">
-                + {fmtPS(illiquidNow)} illiquid ({portfolio.filter((h) => h.illiquid).map((h) => h.product).join(', ')}) · total {fmtPS(nwNow)}
+                + {fmtGBPAED(illiquidNow, fxRates)} illiquid ({portfolio.filter((h) => h.illiquid).map((h) => h.product).join(', ')}) · total {fmtGBPAED(nwNow, fxRates)}
               </div>
             )}
           </div>
@@ -1011,19 +988,19 @@ export default function App() {
             <div className="stat-row">
               <div className="stat-card">
                 <div className="stat-label">Cash &amp; buffer</div>
-                <div className="stat-value">{fmtP(cashNow)}</div>
-                <div className="stat-sub">{fmt(cashNow / (fxRates?.[baseCurrency] || 1) * (fxRates?.[secondaryCurrency] || 1), secondaryCurrency)}</div>
+                <div className="stat-value">{fmtGBP(cashNow, fxRates)}</div>
+                <div className="stat-sub">{fmt(cashNow, 'AED')}</div>
               </div>
               <div className="stat-card">
                 <div className="stat-label">Portfolio (liquid)</div>
-                <div className="stat-value">{fmtP(liquidPortNow)}</div>
-                <div className="stat-sub">{fmt(liquidPortNow / (fxRates?.[baseCurrency] || 1) * (fxRates?.[secondaryCurrency] || 1), secondaryCurrency)}</div>
+                <div className="stat-value">{fmtGBP(liquidPortNow, fxRates)}</div>
+                <div className="stat-sub">{fmt(liquidPortNow, 'AED')}</div>
               </div>
               {illiquidNow > 0 && (
                 <div className="stat-card">
                   <div className="stat-label">Property (illiquid)</div>
-                  <div className="stat-value">{fmtP(illiquidNow)}</div>
-                  <div className="stat-sub">{fmt(illiquidNow / (fxRates?.[baseCurrency] || 1) * (fxRates?.[secondaryCurrency] || 1), secondaryCurrency)}</div>
+                  <div className="stat-value">{fmtGBP(illiquidNow, fxRates)}</div>
+                  <div className="stat-sub">{fmt(illiquidNow, 'AED')}</div>
                 </div>
               )}
             </div>
@@ -1070,18 +1047,18 @@ export default function App() {
               <div className="stat-row">
                 <div className="stat-card">
                   <div className="stat-label">Income</div>
-                  <div className="stat-value pos">{fmtP(totalIn)}</div>
-                  <div className="stat-sub">{fmt(totalIn / (fxRates?.[baseCurrency] || 1) * (fxRates?.[secondaryCurrency] || 1), secondaryCurrency)}</div>
+                  <div className="stat-value pos">{fmtGBP(totalIn, fxRates)}</div>
+                  <div className="stat-sub">{fmt(totalIn, 'AED')}</div>
                 </div>
                 <div className="stat-card">
                   <div className="stat-label">Outflows</div>
-                  <div className="stat-value neg">{fmtP(totalOut)}</div>
-                  <div className="stat-sub">{fmt(totalOut / (fxRates?.[baseCurrency] || 1) * (fxRates?.[secondaryCurrency] || 1), secondaryCurrency)}</div>
+                  <div className="stat-value neg">{fmtGBP(totalOut, fxRates)}</div>
+                  <div className="stat-sub">{fmt(totalOut, 'AED')}</div>
                 </div>
                 <div className="stat-card">
                   <div className="stat-label">Net</div>
-                  <div className={`stat-value ${totalIn - totalOut >= 0 ? 'pos' : 'neg'}`}>{fmtP(totalIn - totalOut)}</div>
-                  <div className="stat-sub">{fmt((totalIn - totalOut) / (fxRates?.[baseCurrency] || 1) * (fxRates?.[secondaryCurrency] || 1), secondaryCurrency)}</div>
+                  <div className={`stat-value ${totalIn - totalOut >= 0 ? 'pos' : 'neg'}`}>{fmtGBP(totalIn - totalOut, fxRates)}</div>
+                  <div className="stat-sub">{fmt((totalIn - totalOut), 'AED')}</div>
                 </div>
               </div>
               {recurringChartData.length > 1 && (
@@ -1327,29 +1304,6 @@ export default function App() {
               </button>
               {importStatus === 'success' && <p className="muted-text pos">Imported successfully.</p>}
               {importStatus === 'error' && <p className="muted-text neg">Couldn't parse that — check it's valid JSON exported from this app.</p>}
-            </div>
-
-            <div className="card">
-              <div className="card-title">Currencies</div>
-              <div className="row">
-                <div style={{ flex: 1 }}>
-                  <div className="section-label">Primary (base)</div>
-                  <select className="input select" value={baseCurrency} onChange={(e) => persist({ ...data, baseCurrency: e.target.value })}>
-                    {['AED','GBP','USD','EUR','INR','SGD','CAD','AUD','SAR','QAR','CHF','JPY','HKD','NZD','ZAR'].map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div className="section-label">Secondary (display)</div>
-                  <select className="input select" value={secondaryCurrency} onChange={(e) => persist({ ...data, secondaryCurrency: e.target.value })}>
-                    {['GBP','AED','USD','EUR','INR','SGD','CAD','AUD','SAR','QAR','CHF','JPY','HKD','NZD','ZAR'].map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <p className="muted-text">Primary is used for all calculations. Secondary appears in brackets throughout the dashboard.</p>
             </div>
 
             <div className="card">
