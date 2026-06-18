@@ -1472,7 +1472,7 @@ const baseCSS = `
   background: #101C2E;
   color: #F7F3EA;
   padding: 20px 20px 16px;
-  padding-top: max(20px, env(safe-area-inset-top, 20px) + 12px);
+  padding-top: max(16px, env(safe-area-inset-top, 16px) + 4px);
 }
 .masthead-eyebrow {
   display: flex;
