@@ -26,6 +26,7 @@ const seed = {
   secondaryCurrency: 'GBP',
   displayCurrency: 'GBP',
   displaySecondaryCurrency: 'AED',
+  disclaimerAccepted: false,
   fxRates: { GBP: 4.924, USD: 3.6725 },
 
   accounts: [
@@ -520,6 +521,7 @@ export default function App() {
   const [fxError, setFxError] = useState(null);
   const [attachment, setAttachment] = useState(null);
   const [attachError, setAttachError] = useState(null);
+  const [disclaimerChecked, setDisclaimerChecked] = useState(false);
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -667,6 +669,50 @@ export default function App() {
       <div className="loading-screen">
         <style>{baseCSS}</style>
         Loading your CFO…
+      </div>
+    );
+  }
+
+  // First-time disclaimer — must be accepted before the dashboard is shown
+  if (!data.disclaimerAccepted) {
+    return (
+      <div className="cfo">
+        <style>{baseCSS}</style>
+        <div className="loading-screen" style={{ flexDirection: 'column', gap: 14, padding: 28, textAlign: 'left', alignItems: 'stretch' }}>
+          <div style={{ maxWidth: 480, margin: '0 auto', width: '100%' }}>
+            <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#7A8699', marginBottom: 6, textAlign: 'center' }}>Personal CFO</div>
+            <div style={{ fontFamily: 'Fraunces, serif', fontSize: 22, color: '#1B2430', textAlign: 'center', marginBottom: 16 }}>Before you continue</div>
+
+            <p style={{ fontSize: 13, color: '#1B2430', lineHeight: 1.55 }}>
+              This is a personal project I built myself, not a commercial product — please bear that in mind as you use it.
+            </p>
+            <p style={{ fontSize: 13, color: '#1B2430', lineHeight: 1.55 }}>
+              Your data is private from other users, but as the project owner I technically have access to the underlying database, so please don't enter anything you wouldn't want me to potentially see. I won't go looking, but I want to be upfront that I could.
+            </p>
+            <p style={{ fontSize: 13, color: '#1B2430', lineHeight: 1.55 }}>
+              I can't guarantee uptime, data persistence, or security to a professional standard — this is a side project, not a polished product. Use at your own discretion.
+            </p>
+
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 16, fontSize: 12.5, color: '#1B2430', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={disclaimerChecked}
+                onChange={(e) => setDisclaimerChecked(e.target.checked)}
+                style={{ marginTop: 3, cursor: 'pointer' }}
+              />
+              <span>I understand this and won't hold the creator responsible for any data loss, downtime, or other issues.</span>
+            </label>
+
+            <button
+              className="btn-primary"
+              onClick={() => persist({ ...data, disclaimerAccepted: true })}
+              disabled={!disclaimerChecked}
+              style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
+            >
+              Continue to dashboard
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
