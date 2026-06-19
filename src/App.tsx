@@ -268,6 +268,40 @@ const readAsDataURL = (file) =>
     r.readAsDataURL(file);
   });
 
+// Resize/recompress an image client-side via canvas before it's ever sent to the API.
+// Only touches images larger than maxDimension on their longest side — small
+// screenshots typically pass through untouched. Quality 0.85 keeps text/numbers
+// crisp (financial documents) while cutting file size substantially.
+const compressImage = (file, maxDimension = 1600, quality = 0.85) =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      img.onload = () => {
+        let { width, height } = img;
+        if (width <= maxDimension && height <= maxDimension) {
+          // Already small enough — pass through as-is, no quality loss
+          resolve({ dataUrl: e.target.result, wasCompressed: false });
+          return;
+        }
+        const scale = maxDimension / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve({ dataUrl, wasCompressed: true });
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
 const readAsText = (file) =>
   new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -752,13 +786,17 @@ export default function App() {
     const MAX_BYTES = 3.5 * 1024 * 1024; // ~3.5MB raw; base64 inflates ~33%, Vercel function payload cap is 4.5MB
     try {
       if (file.type.startsWith('image/')) {
-        if (file.size > MAX_BYTES) {
-          setAttachError(`That image is ${(file.size / 1024 / 1024).toFixed(1)}MB — please use one under ~3.5MB. On iPhone, try a screenshot instead of the original photo, or use Share → Mail → choose a smaller size.`);
+        // Resize/recompress client-side first — this handles the vast majority of
+        // oversized photos (e.g. full-resolution iPhone camera shots) automatically,
+        // so the size check below is now mostly a safety net rather than the main path.
+        const { dataUrl, wasCompressed } = await compressImage(file);
+        const base64 = dataUrl.split(',')[1];
+        const approxBytes = base64.length * 0.75; // base64 -> raw byte estimate
+        if (approxBytes > MAX_BYTES) {
+          setAttachError(`That image is still too large after compression (${(approxBytes / 1024 / 1024).toFixed(1)}MB). Try a screenshot instead, or a smaller photo.`);
           return;
         }
-        const dataUrl = await readAsDataURL(file);
-        const base64 = dataUrl.split(',')[1];
-        setAttachment({ kind: 'image', name: file.name, mediaType: file.type, base64, dataUrl });
+        setAttachment({ kind: 'image', name: file.name, mediaType: wasCompressed ? 'image/jpeg' : file.type, base64, dataUrl, wasCompressed });
       } else if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
         if (file.size > MAX_BYTES) {
           setAttachError(`That PDF is ${(file.size / 1024 / 1024).toFixed(1)}MB — please use one under ~3.5MB, or paste the content into the main chat instead.`);
@@ -1183,7 +1221,7 @@ export default function App() {
                 ) : (
                   <Paperclip size={13} />
                 )}
-                <span>{attachment.name}</span>
+                <span>{attachment.name}{attachment.wasCompressed ? ' (resized)' : ''}</span>
                 <button className="icon-btn" onClick={() => setAttachment(null)}><X size={13} /></button>
               </div>
             )}
