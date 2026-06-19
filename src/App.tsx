@@ -348,8 +348,10 @@ function parseCSV(text) {
   });
 }
 
-// Summarize parsed rows (array of objects) into a compact text block for the CFO,
-// rather than dumping potentially large raw data into the prompt.
+// Summarize parsed rows (array of objects) into a compact text block for the CFO.
+// Sends the FULL dataset (not just a sample) so category breakdowns and totals
+// are accurate — but in a compact pipe-delimited form rather than verbose JSON,
+// to keep token usage reasonable even for a few hundred rows.
 function summarizeRows(rows) {
   if (!rows || rows.length === 0) return 'No rows found in file.';
   const columns = Object.keys(rows[0]);
@@ -368,9 +370,16 @@ function summarizeRows(rows) {
       .map(([k, v]) => `${k}=${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
       .join(', ')}\n`;
   }
-  out += `First rows (sample): ${JSON.stringify(rows.slice(0, 5))}\n`;
-  out += `Last rows (sample): ${JSON.stringify(rows.slice(-5))}`;
-  return out.slice(0, 4000);
+  // Full data, compact pipe-delimited (much smaller than JSON for this shape).
+  // Cap is generous (300+ rows of typical bank transaction data fits comfortably).
+  const MAX_ROWS_FULL = 800;
+  const rowsToSend = rows.length > MAX_ROWS_FULL ? rows.slice(0, MAX_ROWS_FULL) : rows;
+  out += `\nFull data (${rowsToSend.length}${rows.length > MAX_ROWS_FULL ? ` of ${rows.length} — truncated` : ''} rows, pipe-delimited):\n`;
+  out += columns.join(' | ') + '\n';
+  rowsToSend.forEach((r) => {
+    out += columns.map((c) => r[c] ?? '').join(' | ') + '\n';
+  });
+  return out;
 }
 
 function renderMarkdown(text) {
