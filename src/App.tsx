@@ -6,7 +6,7 @@ import {
 import {
   LayoutDashboard, MessageCircle, NotebookPen, Settings2, Send, Plus, Trash2,
   ChevronDown, ChevronUp, Sparkles, Copy, Check, Paperclip, X, FileText,
-  Eye, EyeOff, LogOut,
+  Eye, EyeOff, LogOut, Download,
 } from 'lucide-react';
 
 const supabase = createClient(
@@ -786,22 +786,18 @@ export default function App() {
   const addKnownGap = () => persist({ ...data, knownGaps: [...knownGaps, ''] });
 
 
-  const exportData = async () => {
+  const exportData = () => {
     const json = JSON.stringify(data, null, 2);
-    try {
-      await navigator.clipboard.writeText(json);
-    } catch (e) {
-      // fallback for sandboxed contexts without clipboard API
-      const ta = document.createElement('textarea');
-      ta.value = json;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      try { document.execCommand('copy'); } catch (e2) {}
-      document.body.removeChild(ta);
-    }
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateStr = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `personal-cfo-backup-${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
     setExportCopied(true);
     setTimeout(() => setExportCopied(false), 2000);
   };
@@ -1383,13 +1379,13 @@ export default function App() {
             <div className="card">
               <div className="card-title">Export / backup</div>
               <p className="muted-text">
-                Copies your complete current data — accounts, portfolio, recurring items, goals, all snapshots, life
-                log and chat history — as JSON to your clipboard. Paste it into a new chat (e.g. for a deep-dive
-                review with a different model) to give it full, up-to-date context.
+                Downloads your complete current data — accounts, portfolio, recurring items, goals, all snapshots,
+                life log and chat history — as a JSON file. Keep it somewhere safe as a backup, or paste its
+                contents into a new chat for a deep-dive review with a different model.
               </p>
               <button className="btn-primary" onClick={exportData}>
-                {exportCopied ? <Check size={15} /> : <Copy size={15} />}
-                {exportCopied ? 'Copied to clipboard' : 'Copy full data as JSON'}
+                {exportCopied ? <Check size={15} /> : <Download size={15} />}
+                {exportCopied ? 'Downloaded' : 'Download backup (.json)'}
               </button>
             </div>
 
