@@ -749,15 +749,19 @@ export default function App() {
     e.target.value = '';
     if (!file) return;
     setAttachError(null);
-    const MAX_BYTES = 4 * 1024 * 1024; // ~4MB raw; base64 inflates ~33%
+    const MAX_BYTES = 3.5 * 1024 * 1024; // ~3.5MB raw; base64 inflates ~33%, Vercel function payload cap is 4.5MB
     try {
       if (file.type.startsWith('image/')) {
+        if (file.size > MAX_BYTES) {
+          setAttachError(`That image is ${(file.size / 1024 / 1024).toFixed(1)}MB — please use one under ~3.5MB. On iPhone, try a screenshot instead of the original photo, or use Share → Mail → choose a smaller size.`);
+          return;
+        }
         const dataUrl = await readAsDataURL(file);
         const base64 = dataUrl.split(',')[1];
         setAttachment({ kind: 'image', name: file.name, mediaType: file.type, base64, dataUrl });
       } else if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
         if (file.size > MAX_BYTES) {
-          setAttachError(`That PDF is ${(file.size / 1024 / 1024).toFixed(1)}MB — please use one under ~4MB, or paste the content into the main chat instead.`);
+          setAttachError(`That PDF is ${(file.size / 1024 / 1024).toFixed(1)}MB — please use one under ~3.5MB, or paste the content into the main chat instead.`);
           return;
         }
         const dataUrl = await readAsDataURL(file);
@@ -814,6 +818,12 @@ export default function App() {
     persist(nextData);
     setUpdateForm(makeUpdateForm(nextData));
     setTab('dashboard');
+  };
+
+  const clearChat = () => {
+    persist({ ...data, chat: [
+      { role: 'assistant', content: "Chat history cleared. I still have your full financial picture from your dashboard data — what would you like to know?" },
+    ] });
   };
 
   async function sendChat(presetText) {
@@ -1127,6 +1137,12 @@ export default function App() {
 
         {tab === 'chat' && (
           <div className="chat-wrap">
+            <div className="chat-header">
+              <span className="chat-header-label">CFO Chat</span>
+              <button className="icon-btn" onClick={clearChat} title="Clear chat history" style={{ opacity: 0.7, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Trash2 size={13} /> <span style={{ fontSize: 11 }}>Clear chat</span>
+              </button>
+            </div>
             <div className="chat-thread">
               {chat.map((m, i) => (
                 <div className={`chat-bubble ${m.role === 'user' ? 'chat-user' : 'chat-assistant'}`} key={i}>
@@ -1777,6 +1793,8 @@ textarea.input { resize: vertical; }
 
 /* Chat */
 .chat-wrap { display: flex; flex-direction: column; gap: 10px; height: calc(100vh - 200px); min-height: 420px; }
+.chat-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 4px; border-bottom: 1px solid rgba(27,36,48,0.08); }
+.chat-header-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #7A8699; }
 .chat-thread { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 2px; }
 .chat-bubble {
   border-radius: 8px;
