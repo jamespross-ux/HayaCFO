@@ -24,6 +24,7 @@ const seed = {
   displaySecondaryCurrency: 'AED',
   disclaimerAccepted: false,
   lastFxAutoRefresh: null,
+  loginStreak: { count: 0, lastDate: null, longest: 0 },
   fxRates: { GBP: 4.924, USD: 3.6725 },
 
   accounts: [
@@ -593,6 +594,24 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.lastFxAutoRefresh, data?.disclaimerAccepted]);
 
+  // Login streak — counts distinct calendar days the app was opened (not strictly
+  // consecutive sessions within a day, just whether a new day has occurred since
+  // the last visit). Resets to 1 if a day is missed; tracks longest streak too.
+  useEffect(() => {
+    if (!data || !data.disclaimerAccepted) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const streak = data.loginStreak || { count: 0, lastDate: null, longest: 0 };
+    if (streak.lastDate === today) return; // already counted today
+
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const isConsecutive = streak.lastDate === yesterday;
+    const newCount = isConsecutive ? streak.count + 1 : 1;
+    const newLongest = Math.max(newCount, streak.longest || 0);
+
+    persist({ ...data, loginStreak: { count: newCount, lastDate: today, longest: newLongest } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.disclaimerAccepted]);
+
   const handleAuth = async () => {
     setAuthLoading(true);
     setAuthError(null);
@@ -1018,7 +1037,14 @@ export default function App() {
 
       <header className="masthead">
         <div className="masthead-eyebrow">
-          <span>Personal CFO</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>Personal CFO</span>
+            {data.loginStreak?.count >= 2 && (
+              <span className="streak-badge" title={`Longest streak: ${data.loginStreak.longest} days`}>
+                🔥 {data.loginStreak.count}
+              </span>
+            )}
+          </span>
           <button
             className="masthead-eye-btn"
             onClick={() => setShowFigures((v) => !v)}
@@ -1579,6 +1605,16 @@ const baseCSS = `
   text-transform: uppercase;
   color: #C9A24A;
   margin-bottom: 14px;
+}
+.streak-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+  color: #F7F3EA;
+  background: rgba(201,162,74,0.18);
+  border-radius: 10px;
+  padding: 2px 8px;
 }
 .masthead-eye-btn {
   background: rgba(255,255,255,0.08);
