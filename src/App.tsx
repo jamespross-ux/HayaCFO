@@ -15,18 +15,15 @@ const supabase = createClient(
 );
 
 const STORAGE_KEY = 'personal-cfo-data';
-// Cap on messages sent to the API per request (full history is always kept in storage/UI)
 const MAX_HISTORY_MESSAGES = 24;
 
-// NOTE: this seed is a generic starting template only. It contains no real
-// personal data — your actual figures live in your browser's localStorage
-// once you enter them via Update/Setup (or paste an exported JSON backup).
 const seed = {
   baseCurrency: 'AED',
   secondaryCurrency: 'GBP',
   displayCurrency: 'GBP',
   displaySecondaryCurrency: 'AED',
   disclaimerAccepted: false,
+  lastFxAutoRefresh: null,
   fxRates: { GBP: 4.924, USD: 3.6725 },
 
   accounts: [
@@ -86,13 +83,9 @@ const fmt = (n, currency) => {
   return `${symbol}${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 };
 
-// Display formatters — data is always stored in baseCurrency (AED).
-// Display currencies are a pure UI preference stored in data.displayCurrency / data.displaySecondaryCurrency.
-// No financial data is ever stored in the display currency.
 const DEFAULT_DISPLAY = 'GBP';
 const DEFAULT_DISPLAY_SECONDARY = 'AED';
 
-// These are called with display prefs passed in from the App component
 const fmtGBP = (amountBase, fxRates, displayCurrency = DEFAULT_DISPLAY) => {
   const rate = fxRates?.[displayCurrency] || 1;
   const val = Number(amountBase || 0) / rate;
@@ -121,8 +114,6 @@ const accountsTotal = (snap, accounts, dataFx, base) =>
     return sum + bal * rate * (a.type === 'liability' ? -1 : 1);
   }, 0);
 
-// opts.excludeIlliquid: skip holdings flagged illiquid (e.g. property equity)
-// opts.illiquidOnly: sum only holdings flagged illiquid
 const portfolioTotal = (snap, portfolio, dataFx, base, opts = {}) =>
   portfolio
     .filter((h) => (opts.illiquidOnly ? !!h.illiquid : opts.excludeIlliquid ? !h.illiquid : true))
@@ -131,7 +122,6 @@ const portfolioTotal = (snap, portfolio, dataFx, base, opts = {}) =>
       0
     );
 
-// net worth excluding illiquid holdings (e.g. property equity) — the "spendable" picture
 const liquidNetWorth = (snap, accounts, portfolio, dataFx, base) =>
   accountsTotal(snap, accounts, dataFx, base) + portfolioTotal(snap, portfolio, dataFx, base, { excludeIlliquid: true });
 
@@ -144,7 +134,6 @@ const riskBreakdown = (snap, portfolio, dataFx, base) => {
   return result;
 };
 
-// convert a recurring item's amount into base currency / month
 const monthlyInBase = (item, dataFx, base) => {
   const rate = rateFor(item.currency, null, dataFx, base);
   const mult = item.frequency === 'monthly' ? 1 : item.frequency === 'weekly' ? 4.333 : item.frequency === 'yearly' ? 1 / 12 : 1;
@@ -260,7 +249,6 @@ function buildSystemPrompt(data) {
   return lines.join('\n');
 }
 
-// ---- file attachment helpers ----
 const readAsDataURL = (file) =>
   new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -269,10 +257,6 @@ const readAsDataURL = (file) =>
     r.readAsDataURL(file);
   });
 
-// Resize/recompress an image client-side via canvas before it's ever sent to the API.
-// Only touches images larger than maxDimension on their longest side — small
-// screenshots typically pass through untouched. Quality 0.85 keeps text/numbers
-// crisp (financial documents) while cutting file size substantially.
 const compressImage = (file, maxDimension = 1600, quality = 0.85) =>
   new Promise((resolve, reject) => {
     const img = new Image();
@@ -281,7 +265,6 @@ const compressImage = (file, maxDimension = 1600, quality = 0.85) =>
       img.onload = () => {
         let { width, height } = img;
         if (width <= maxDimension && height <= maxDimension) {
-          // Already small enough — pass through as-is, no quality loss
           resolve({ dataUrl: e.target.result, wasCompressed: false });
           return;
         }
@@ -311,8 +294,6 @@ const readAsText = (file) =>
     r.readAsText(file);
   });
 
-// Minimal CSV parser (handles quoted fields with embedded commas) — avoids
-// relying on external libraries that aren't supported in this environment.
 function parseCSV(text) {
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
   if (lines.length === 0) return [];
@@ -348,10 +329,6 @@ function parseCSV(text) {
   });
 }
 
-// Summarize parsed rows (array of objects) into a compact text block for the CFO.
-// Sends the FULL dataset (not just a sample) so category breakdowns and totals
-// are accurate — but in a compact pipe-delimited form rather than verbose JSON,
-// to keep token usage reasonable even for a few hundred rows.
 function summarizeRows(rows) {
   if (!rows || rows.length === 0) return 'No rows found in file.';
   const columns = Object.keys(rows[0]);
@@ -370,8 +347,6 @@ function summarizeRows(rows) {
       .map(([k, v]) => `${k}=${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
       .join(', ')}\n`;
   }
-  // Full data, compact pipe-delimited (much smaller than JSON for this shape).
-  // Cap is generous (300+ rows of typical bank transaction data fits comfortably).
   const MAX_ROWS_FULL = 800;
   const rowsToSend = rows.length > MAX_ROWS_FULL ? rows.slice(0, MAX_ROWS_FULL) : rows;
   out += `\nFull data (${rowsToSend.length}${rows.length > MAX_ROWS_FULL ? ` of ${rows.length} — truncated` : ''} rows, pipe-delimited):\n`;
@@ -508,7 +483,7 @@ const INTERVIEW_PROMPT =
   "Based on everything you currently know about my accounts, portfolio, recurring cash flows, goals, and the known gaps — interview me with around 10 specific questions that would help you understand my situation better and give sharper recommendations going forward. Ground the questions in my actual numbers and items where relevant (e.g. specific holdings, the Caroline Ross flow, NS&I, my goals) rather than generic finance questions. List them all now, numbered, and I'll answer through as many as I can.";
 
 export default function App() {
-  const [session, setSession] = useState(undefined); // undefined = loading, null = logged out
+  const [session, setSession] = useState(undefined);
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
@@ -534,7 +509,6 @@ export default function App() {
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // --- Auth: listen for session changes ---
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session ?? null);
@@ -546,7 +520,6 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // --- Load data from Supabase when session is available ---
   useEffect(() => {
     if (!session) return;
     (async () => {
@@ -581,7 +554,45 @@ export default function App() {
     }, { onConflict: 'user_id' });
   }
 
-  // --- Auth: email + password ---
+  // Auto-refresh FX rates once per calendar day on load (silent, saves directly).
+  // The manual "Refresh live rates" button in Update still works on-demand on top
+  // of this. Self-contained (doesn't rely on fxCurrencies/baseCurrency from the
+  // post-gate destructure) so this hook can safely live here, before any
+  // conditional return, keeping hook order consistent across renders.
+  useEffect(() => {
+    if (!data || !data.disclaimerAccepted) return;
+    const today = new Date().toISOString().slice(0, 10);
+    if (data.lastFxAutoRefresh === today) return; // already refreshed today
+
+    const base = data.baseCurrency;
+    const fxCurrencies = [...new Set([
+      ...(data.accounts || []).map((a) => a.currency),
+      ...(data.portfolio || []).map((h) => h.currency),
+      data.displayCurrency,
+      data.displaySecondaryCurrency,
+    ])].filter((c) => c && c !== base);
+    if (fxCurrencies.length === 0) return; // nothing to refresh
+
+    (async () => {
+      try {
+        const apiKey = import.meta.env.VITE_EXCHANGERATE_API_KEY;
+        const res = await fetch(`https://v6.exchangerate-api.com/v6/${apiKey}/latest/${base}`);
+        const json = await res.json();
+        if (json.result !== 'success') return; // fail silently — not user-initiated
+        const rates = json.conversion_rates;
+        const updatedFxRates = { ...data.fxRates };
+        fxCurrencies.forEach((c) => {
+          if (rates[c]) updatedFxRates[c] = parseFloat((1 / rates[c]).toFixed(6));
+        });
+        persist({ ...data, fxRates: updatedFxRates, lastFxAutoRefresh: today });
+      } catch (e) {
+        // Silent failure — this is a background convenience, not a user action.
+        // The manual refresh button in Update remains available if needed.
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.lastFxAutoRefresh, data?.disclaimerAccepted]);
+
   const handleAuth = async () => {
     setAuthLoading(true);
     setAuthError(null);
@@ -605,13 +616,9 @@ export default function App() {
       const json = await res.json();
       if (json.result !== 'success') throw new Error(json['error-type'] || 'Failed to fetch rates');
       const rates = json.conversion_rates;
-      // Build updated fxRates — for each currency in our portfolio/accounts, get rate relative to base
       const updatedFxRates = { ...updateForm.fxRates };
       fxCurrencies.forEach((c) => {
         if (rates[c]) {
-          // ExchangeRate-API returns: 1 baseCurrency = X foreignCurrency
-          // Our app stores: 1 foreignCurrency = X baseCurrency
-          // So we need the inverse
           updatedFxRates[c] = (1 / rates[c]).toFixed(6);
         }
       });
@@ -622,7 +629,6 @@ export default function App() {
     setFxLoading(false);
   };
 
-  // Still determining session
   if (session === undefined) {
     return (
       <div className="loading-screen">
@@ -632,7 +638,6 @@ export default function App() {
     );
   }
 
-  // Not logged in — show email/password screen
   if (!session) {
     return (
       <div className="cfo">
@@ -672,7 +677,6 @@ export default function App() {
     );
   }
 
-  // Logged in but data still loading
   if (!data || !updateForm) {
     return (
       <div className="loading-screen">
@@ -682,7 +686,6 @@ export default function App() {
     );
   }
 
-  // First-time disclaimer — must be accepted before the dashboard is shown
   if (!data.disclaimerAccepted) {
     return (
       <div className="cfo">
@@ -728,7 +731,6 @@ export default function App() {
 
   const { baseCurrency, displayCurrency = 'GBP', displaySecondaryCurrency = 'AED', accounts, portfolio, goals, recurringItems, knownGaps, snapshots, lifeLog, fxRates, chat } = data;
 
-  // Display-only formatters — primary is user's display preference, secondary always baseCurrency
   const fmtD = (v) => fmtGBP(v, fxRates, displayCurrency);
   const fmtDS = (v) => fmtGBPAED(v, fxRates, displayCurrency, baseCurrency);
   const sortedSnaps = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
@@ -770,7 +772,6 @@ export default function App() {
   const totalIn = incomeItems.reduce((s, r) => s + monthlyInBase(r, fxRates, baseCurrency), 0);
   const totalOut = outflowItems.reduce((s, r) => s + monthlyInBase(r, fxRates, baseCurrency), 0);
 
-  // ---- mutation helpers ----
   const updateAccount = (id, field, value) => persist({ ...data, accounts: accounts.map((a) => (a.id === id ? { ...a, [field]: value } : a)) });
   const addAccount = () => persist({ ...data, accounts: [...accounts, { id: uid(), name: 'New account', type: 'asset', currency: baseCurrency }] });
   const removeAccount = (id) => persist({ ...data, accounts: accounts.filter((a) => a.id !== id) });
@@ -834,15 +835,12 @@ export default function App() {
     e.target.value = '';
     if (!file) return;
     setAttachError(null);
-    const MAX_BYTES = 3.5 * 1024 * 1024; // ~3.5MB raw; base64 inflates ~33%, Vercel function payload cap is 4.5MB
+    const MAX_BYTES = 3.5 * 1024 * 1024;
     try {
       if (file.type.startsWith('image/')) {
-        // Resize/recompress client-side first — this handles the vast majority of
-        // oversized photos (e.g. full-resolution iPhone camera shots) automatically,
-        // so the size check below is now mostly a safety net rather than the main path.
         const { dataUrl, wasCompressed } = await compressImage(file);
         const base64 = dataUrl.split(',')[1];
-        const approxBytes = base64.length * 0.75; // base64 -> raw byte estimate
+        const approxBytes = base64.length * 0.75;
         if (approxBytes > MAX_BYTES) {
           setAttachError(`That image is still too large after compression (${(approxBytes / 1024 / 1024).toFixed(1)}MB). Try a screenshot instead, or a smaller photo.`);
           return;
@@ -943,17 +941,9 @@ export default function App() {
     setChatLoading(true);
     setChatError(null);
     try {
-      // The API requires the conversation to start with a 'user' message —
-      // drop any leading assistant message(s) (e.g. the seed welcome note)
-      // before sending, while still showing them in the UI.
       const firstUserIdx = nextChat.findIndex((m) => m.role === 'user');
       let apiMessages = nextChat.slice(firstUserIdx);
 
-      // Cap how much history is sent per request. Full history stays in
-      // storage/UI regardless — this only trims what's sent to the API,
-      // since durable facts (accounts, goals, recurring items, snapshots,
-      // life log) are already included in full via the system prompt on
-      // every request.
       if (apiMessages.length > MAX_HISTORY_MESSAGES) {
         apiMessages = apiMessages.slice(-MAX_HISTORY_MESSAGES);
         if (apiMessages[0]?.role !== 'user') apiMessages = apiMessages.slice(1);
