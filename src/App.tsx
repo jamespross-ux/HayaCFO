@@ -218,6 +218,7 @@ function buildSystemPrompt(data) {
     lines.push(`- ${r.name}: ${r.currency} ${Number(r.amount).toLocaleString()}/${r.frequency} (${r.account}, ${r.category})${r.notes ? ` — ${r.notes}` : ''}`)
   );
   lines.push(`Net recurring position: ${fmt(totalIn - totalOut, baseCurrency)}/month (income ${fmt(totalIn, baseCurrency)}, outflows ${fmt(totalOut, baseCurrency)})`);
+  lines.push(`IMPORTANT: the figures above (income, outflows, net) are the current, authoritative totals — always derive any net/balance figures directly from this income and outflow list, never by adjusting a net figure you or the user stated earlier in the conversation. If a line item changes, recompute from the full list above rather than doing delta arithmetic on a previous answer.`);
   if (knownGaps?.length) {
     lines.push('');
     lines.push('Known gaps / things not yet tracked:');
