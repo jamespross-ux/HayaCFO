@@ -1068,19 +1068,20 @@ export default function App() {
         let toolResult;
         let confirmationMsg;
 
+        let updatedData = data;
+
         if (currentLog.length >= 100) {
           toolResult = 'Error: Life log is full (100 entries). The user should remove some old entries in Setup before adding new ones.';
-          confirmationMsg = null;
         } else if (!entry.trim()) {
           toolResult = 'Error: Entry text was empty — nothing was logged.';
-          confirmationMsg = null;
         } else {
-          // Execute the tool — add to life log
+          // Execute the tool — add to life log.
+          // We hoist newEntry and updatedData so the same object is used in both
+          // the intermediate persist() and the final persist() — avoiding the
+          // stale-closure bug where a second persist() would overwrite the entry.
           const newEntry = { id: uid(), date: new Date().toISOString().slice(0, 10), text: entry.trim() };
-          const updatedData = { ...data, lifeLog: [...currentLog, newEntry] };
-          persist(updatedData);
+          updatedData = { ...data, lifeLog: [...currentLog, newEntry] };
           toolResult = `Success: Entry added to life log — "${entry.trim()}"`;
-          confirmationMsg = replyText; // keep any conversational text before the tool call
         }
 
         // --- Second API call (non-streaming) to get CFO's confirmation message ---
@@ -1118,7 +1119,10 @@ export default function App() {
           || (toolResult.startsWith('Success') ? '✓ Added to your life log.' : 'I wasn\'t able to add that — the life log may be full.');
 
         const fullReply = [replyText, finalReply].filter(Boolean).join('\n\n');
-        persist({ ...data, chat: [...nextChat, { role: 'assistant', content: fullReply }] });
+
+        // Use updatedData (which includes the new life log entry) as the base,
+        // so the chat persist doesn't overwrite what we just saved.
+        persist({ ...updatedData, chat: [...nextChat, { role: 'assistant', content: fullReply }] });
         return;
       }
 
