@@ -22,6 +22,7 @@ const seed = {
   secondaryCurrency: 'GBP',
   displayCurrency: 'GBP',
   displaySecondaryCurrency: 'AED',
+  showSecondaryCurrency: true,
   disclaimerAccepted: false,
   lastFxAutoRefresh: null,
   loginStreak: { count: 0, lastDate: null, longest: 0 },
@@ -754,7 +755,7 @@ export default function App() {
     );
   }
 
-  const { baseCurrency, displayCurrency = 'GBP', displaySecondaryCurrency = 'AED', accounts, portfolio, goals, recurringItems, knownGaps, snapshots, lifeLog, fxRates, chat } = data;
+  const { baseCurrency, displayCurrency = 'GBP', displaySecondaryCurrency = 'AED', showSecondaryCurrency = true, accounts, portfolio, goals, recurringItems, knownGaps, snapshots, lifeLog, fxRates, chat } = data;
 
   const fmtD = (v) => fmtGBP(v, fxRates, displayCurrency);
   const fmtDS = (v) => fmtGBPAED(v, fxRates, displayCurrency, baseCurrency);
@@ -1172,7 +1173,7 @@ export default function App() {
           <div className="masthead-label">Liquid net worth</div>
           <div className="masthead-hero">{fmtD(liquidNwNow)}</div>
           <div className="masthead-sub-row">
-            <span className="masthead-secondary">{fmt(liquidNwNow, baseCurrency)}</span>
+            {showSecondaryCurrency && <span className="masthead-secondary">{fmt(liquidNwNow, baseCurrency)}</span>}
             {delta !== null && (
               <span className={`masthead-delta ${delta >= 0 ? 'pos' : 'neg'}`}>
                 {delta >= 0 ? '▲' : '▼'} {fmtD(Math.abs(delta))} since last update
@@ -1184,12 +1185,12 @@ export default function App() {
             <div className="masthead-cell">
               <div className="masthead-cell-label">Cash</div>
               <div className="masthead-cell-value">{fmtD(cashNow)}</div>
-              <div className="masthead-cell-secondary">{fmt(cashNow, baseCurrency)}</div>
+              {showSecondaryCurrency && <div className="masthead-cell-secondary">{fmt(cashNow, baseCurrency)}</div>}
             </div>
             <div className="masthead-cell">
               <div className="masthead-cell-label">Portfolio</div>
               <div className="masthead-cell-value">{fmtD(liquidPortNow)}</div>
-              <div className="masthead-cell-secondary">{fmt(liquidPortNow, baseCurrency)}</div>
+              {showSecondaryCurrency && <div className="masthead-cell-secondary">{fmt(liquidPortNow, baseCurrency)}</div>}
             </div>
             {illiquidNow > 0 && (
               <div className="masthead-cell">
@@ -1203,7 +1204,7 @@ export default function App() {
             <div className="masthead-cell masthead-cell-total">
               <div className="masthead-cell-label" style={{ color: '#C9A24A' }}>Total</div>
               <div className="masthead-cell-value">{fmtD(nwNow)}</div>
-              <div className="masthead-cell-secondary">{fmt(nwNow, baseCurrency)}</div>
+              {showSecondaryCurrency && <div className="masthead-cell-secondary">{fmt(nwNow, baseCurrency)}</div>}
             </div>
           </div>
         </div>
@@ -1234,7 +1235,7 @@ export default function App() {
                     <CartesianGrid stroke="#E4DCC8" vertical={false} />
                     <XAxis dataKey="date" tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" />
                     <YAxis tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} width={48} />
-                    <Tooltip formatter={(v) => fmt(v, baseCurrency)} contentStyle={{ fontFamily: 'IBM Plex Sans', fontSize: 12, borderRadius: 4 }} />
+                    <Tooltip formatter={(v) => fmtD(v)} contentStyle={{ fontFamily: 'IBM Plex Sans', fontSize: 12, borderRadius: 4 }} />
                     <Line type="monotone" dataKey="netWorth" stroke="#C9A24A" strokeWidth={2.5} dot={{ r: 3 }} />
                   </LineChart>
                 </ResponsiveContainer>
@@ -1284,17 +1285,17 @@ export default function App() {
                 <div className="stat-card">
                   <div className="stat-label">Income</div>
                   <div className="stat-value pos">{fmtD(totalIn)}</div>
-                  <div className="stat-sub">{fmt(totalIn, baseCurrency)}</div>
+                  {showSecondaryCurrency && <div className="stat-sub">{fmt(totalIn, baseCurrency)}</div>}
                 </div>
                 <div className="stat-card">
                   <div className="stat-label">Outflows</div>
                   <div className="stat-value neg">{fmtD(totalOut)}</div>
-                  <div className="stat-sub">{fmt(totalOut, baseCurrency)}</div>
+                  {showSecondaryCurrency && <div className="stat-sub">{fmt(totalOut, baseCurrency)}</div>}
                 </div>
                 <div className="stat-card">
                   <div className="stat-label">Net</div>
                   <div className={`stat-value ${totalIn - totalOut >= 0 ? 'pos' : 'neg'}`}>{fmtD(totalIn - totalOut)}</div>
-                  <div className="stat-sub">{fmt((totalIn - totalOut), 'AED')}</div>
+                  {showSecondaryCurrency && <div className="stat-sub">{fmt((totalIn - totalOut), 'AED')}</div>}
                 </div>
               </div>
               {recurringChartData.length > 1 && (
@@ -1305,7 +1306,7 @@ export default function App() {
                       <CartesianGrid stroke="#E4DCC8" vertical={false} />
                       <XAxis dataKey="date" tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" />
                       <YAxis tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} width={48} />
-                      <Tooltip formatter={(v) => fmt(v, baseCurrency)} contentStyle={{ fontFamily: 'IBM Plex Sans', fontSize: 12, borderRadius: 4 }} />
+                      <Tooltip formatter={(v) => fmtD(v)} contentStyle={{ fontFamily: 'IBM Plex Sans', fontSize: 12, borderRadius: 4 }} />
                       <Legend wrapperStyle={{ fontFamily: 'IBM Plex Sans', fontSize: 11 }} />
                       <Line type="monotone" dataKey="income" name="Income" stroke="#5E8C7C" strokeWidth={2} dot={{ r: 3 }} />
                       <Line type="monotone" dataKey="outflows" name="Outflows" stroke="#BD5B3A" strokeWidth={2} dot={{ r: 3 }} />
@@ -1678,7 +1679,15 @@ export default function App() {
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
-              <p className="muted-text">{baseCurrency} always shown in brackets alongside.</p>
+              <label className="checkbox-label" style={{ marginTop: 12 }}>
+                <input
+                  type="checkbox"
+                  checked={showSecondaryCurrency}
+                  onChange={(e) => persist({ ...data, showSecondaryCurrency: e.target.checked })}
+                />
+                Show {baseCurrency} alongside figures
+              </label>
+              <p className="muted-text" style={{ marginTop: 4 }}>When off, only your display currency is shown — {baseCurrency} figures are hidden throughout.</p>
             </div>
 
             <div className="card">
