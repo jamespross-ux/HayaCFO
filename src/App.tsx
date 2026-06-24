@@ -169,6 +169,10 @@ function buildSystemPrompt(data) {
     `Note: James prefers GBP as the primary currency for headline figures, with AED shown alongside for reference (the dashboard now displays figures this way: "£X (AED Y)"). Follow this convention in conversation too — lead with GBP, AED in brackets — using the FX rate above.`
   );
   lines.push('');
+  lines.push(
+    `You have access to a tool called add_life_log_entry. Use it to record meaningful life or financial events to James's permanent life log — things like job changes, major decisions, big expenses, life events, or important context about his financial situation. When something worth logging comes up naturally in conversation, proactively offer: "Would you like me to add that to your life log?" Wait for explicit confirmation before calling the tool. Write entries as clean, neutral, third-person summaries. Do not log trivial messages, profanity, or anything that wouldn't belong in a professional financial record.`
+  );
+  lines.push('');
   lines.push(`=== CURRENT FINANCIAL POSITION (as of ${latest?.date || 'no snapshot yet'}) ===`);
   lines.push(`Base currency (data): ${baseCurrency}. Display: ${displayCurrency} headline, ${baseCurrency} in brackets. Key FX rates: ${Object.entries(fxRates || {}).map(([k,v]) => `1 ${k} = ${v} ${baseCurrency}`).join(', ')}.`);
   lines.push(`Liquid net worth: ${fmt(liquidNw, baseCurrency)} (cash/accounts ${fmt(cash, baseCurrency)}, liquid portfolio ${fmt(liquidPort, baseCurrency)}) — this is the headline figure on the dashboard.`);
@@ -499,6 +503,7 @@ export default function App() {
   const [chatError, setChatError] = useState(null);
   const [updateForm, setUpdateForm] = useState(null);
   const [lifeNoteDraft, setLifeNoteDraft] = useState('');
+  const [showAllLifeLog, setShowAllLifeLog] = useState(false);
   const [exportCopied, setExportCopied] = useState(false);
   const [importText, setImportText] = useState('');
   const [importStatus, setImportStatus] = useState(null);
@@ -933,6 +938,24 @@ export default function App() {
     ] });
   };
 
+  // Tool definition — the CFO can call this to add an entry to the life log.
+  // The CFO is instructed to ask the user first before calling it.
+  const LIFE_LOG_TOOL = {
+    name: 'add_life_log_entry',
+    description: 'Add a meaningful life or financial event to the user\'s life log. Only call this after the user has explicitly confirmed they want it logged. Write a clean, neutral, third-person summary (e.g. "Accepted a new role at Company X"). Max 500 characters. Do not log trivial chat messages, profanity, or anything that wouldn\'t belong in a professional financial record. Decline if the log already has 100 or more entries.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        entry: {
+          type: 'string',
+          description: 'The life log entry text. Neutral, third-person, factual summary. Max 500 characters.',
+          maxLength: 500,
+        },
+      },
+      required: ['entry'],
+    },
+  };
+
   async function sendChat(presetText) {
     const text = (presetText ?? chatInput).trim();
     if ((!text && !attachment) || chatLoading) return;
@@ -960,15 +983,16 @@ export default function App() {
     setAttachment(null);
     setChatLoading(true);
     setChatError(null);
+
     try {
       const firstUserIdx = nextChat.findIndex((m) => m.role === 'user');
       let apiMessages = nextChat.slice(firstUserIdx);
-
       if (apiMessages.length > MAX_HISTORY_MESSAGES) {
         apiMessages = apiMessages.slice(-MAX_HISTORY_MESSAGES);
         if (apiMessages[0]?.role !== 'user') apiMessages = apiMessages.slice(1);
       }
 
+      // --- First API call (streaming) ---
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -976,6 +1000,7 @@ export default function App() {
           model: 'claude-sonnet-4-6',
           max_tokens: 1000,
           stream: true,
+          tools: [LIFE_LOG_TOOL],
           system: [{ type: 'text', text: buildSystemPrompt(data), cache_control: { type: 'ephemeral' } }],
           messages: apiMessages.map((m) => ({ role: m.role, content: m.content })),
         }),
@@ -985,15 +1010,17 @@ export default function App() {
         const errText = await response.text();
         throw new Error(`status ${response.status}: ${errText.slice(0, 200)}`);
       }
-      if (!response.body) {
-        throw new Error('no response body (streaming not supported here)');
-      }
+      if (!response.body) throw new Error('no response body');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
       let replyText = '';
       let streamErr = null;
+      let toolUseBlock = null;
+      let toolUseId = null;
+      let currentBlockType = null;
+      let toolInputJson = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -1007,16 +1034,98 @@ export default function App() {
           if (!dataStr) continue;
           let evt;
           try { evt = JSON.parse(dataStr); } catch { continue; }
-          if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
-            replyText += evt.delta.text;
+
+          if (evt.type === 'content_block_start') {
+            currentBlockType = evt.content_block?.type;
+            if (currentBlockType === 'tool_use') {
+              toolUseId = evt.content_block.id;
+              toolUseBlock = { type: 'tool_use', id: toolUseId, name: evt.content_block.name, input: {} };
+              toolInputJson = '';
+            }
+          } else if (evt.type === 'content_block_delta') {
+            if (evt.delta?.type === 'text_delta') {
+              replyText += evt.delta.text;
+            } else if (evt.delta?.type === 'input_json_delta') {
+              toolInputJson += evt.delta.partial_json;
+            }
+          } else if (evt.type === 'content_block_stop') {
+            if (currentBlockType === 'tool_use' && toolInputJson) {
+              try { toolUseBlock.input = JSON.parse(toolInputJson); } catch { /* ignore */ }
+            }
           } else if (evt.type === 'error') {
             streamErr = evt.error?.message || 'stream error';
           }
         }
       }
+
       if (streamErr) throw new Error(streamErr);
+
+      // --- Handle tool use ---
+      if (toolUseBlock) {
+        const entry = toolUseBlock.input?.entry?.slice(0, 500) || '';
+        const currentLog = data.lifeLog || [];
+
+        let toolResult;
+        let confirmationMsg;
+
+        if (currentLog.length >= 100) {
+          toolResult = 'Error: Life log is full (100 entries). The user should remove some old entries in Setup before adding new ones.';
+          confirmationMsg = null;
+        } else if (!entry.trim()) {
+          toolResult = 'Error: Entry text was empty — nothing was logged.';
+          confirmationMsg = null;
+        } else {
+          // Execute the tool — add to life log
+          const newEntry = { id: uid(), date: new Date().toISOString().slice(0, 10), text: entry.trim() };
+          const updatedData = { ...data, lifeLog: [...currentLog, newEntry] };
+          persist(updatedData);
+          toolResult = `Success: Entry added to life log — "${entry.trim()}"`;
+          confirmationMsg = replyText; // keep any conversational text before the tool call
+        }
+
+        // --- Second API call (non-streaming) to get CFO's confirmation message ---
+        const assistantToolMsg = {
+          role: 'assistant',
+          content: [
+            ...(replyText ? [{ type: 'text', text: replyText }] : []),
+            toolUseBlock,
+          ],
+        };
+        const toolResultMsg = {
+          role: 'user',
+          content: [{ type: 'tool_result', tool_use_id: toolUseId, content: toolResult }],
+        };
+
+        const confirmResponse = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 300,
+            stream: false,
+            tools: [LIFE_LOG_TOOL],
+            system: [{ type: 'text', text: buildSystemPrompt(data), cache_control: { type: 'ephemeral' } }],
+            messages: [
+              ...apiMessages.map((m) => ({ role: m.role, content: m.content })),
+              assistantToolMsg,
+              toolResultMsg,
+            ],
+          }),
+        });
+
+        const confirmJson = await confirmResponse.json();
+        const finalReply = confirmJson?.content?.find((b) => b.type === 'text')?.text?.trim()
+          || (toolResult.startsWith('Success') ? '✓ Added to your life log.' : 'I wasn\'t able to add that — the life log may be full.');
+
+        const fullReply = [replyText, finalReply].filter(Boolean).join('\n\n');
+        persist({ ...data, chat: [...nextChat, { role: 'assistant', content: fullReply }] });
+        return;
+      }
+
+      // --- Normal text response (no tool use) ---
       if (!replyText) throw new Error('empty response');
       persist({ ...data, chat: [...nextChat, { role: 'assistant', content: replyText }] });
+
     } catch (e) {
       setChatError(`Could not reach the CFO just now (${e.message || 'unknown error'}). Try again in a moment.`);
       persist({ ...data, chat: nextChat });
@@ -1523,12 +1632,25 @@ export default function App() {
                   onKeyDown={(e) => { if (e.key === 'Enter') addStandaloneLifeNote(); }} />
                 <button className="btn-secondary" onClick={addStandaloneLifeNote}><Plus size={14} /></button>
               </div>
-              {[...lifeLog].reverse().map((l) => (
-                <div className="kv" key={l.id}>
-                  <span><span className="mono" style={{ marginRight: 8 }}>{l.date}</span>{l.text}</span>
-                  <button className="icon-btn" onClick={() => removeLifeLogEntry(l.id)}><Trash2 size={14} /></button>
-                </div>
-              ))}
+              {(() => {
+                const sorted = [...lifeLog].reverse();
+                const visible = showAllLifeLog ? sorted : sorted.slice(0, 10);
+                return (
+                  <>
+                    {visible.map((l) => (
+                      <div className="kv" key={l.id}>
+                        <span><span className="mono" style={{ marginRight: 8 }}>{l.date}</span>{l.text}</span>
+                        <button className="icon-btn" onClick={() => removeLifeLogEntry(l.id)}><Trash2 size={14} /></button>
+                      </div>
+                    ))}
+                    {lifeLog.length > 10 && (
+                      <button className="btn-secondary" onClick={() => setShowAllLifeLog((v) => !v)} style={{ marginTop: 6, fontSize: 12 }}>
+                        {showAllLifeLog ? `Show less` : `Show all ${lifeLog.length} entries`}
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
               {lifeLog.length === 0 && <p className="muted-text">Nothing logged yet — add context here or via Update.</p>}
             </div>
 
