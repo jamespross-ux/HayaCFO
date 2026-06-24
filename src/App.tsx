@@ -1439,12 +1439,12 @@ export default function App() {
               <div className="card-title">Accounts</div>
               {accounts.map((a) => (
                 <div className="row" key={a.id}>
-                  <input className="input" value={a.name} onChange={(e) => updateAccount(a.id, 'name', e.target.value)} />
-                  <select className="input select" value={a.type} onChange={(e) => updateAccount(a.id, 'type', e.target.value)}>
+                  <input className="input" value={a.name} onChange={(e) => updateAccount(a.id, 'name', e.target.value)} style={{ flex: '1 1 0', minWidth: 0 }} />
+                  <select className="input select" value={a.type} onChange={(e) => updateAccount(a.id, 'type', e.target.value)} style={{ flex: '0 0 90px' }}>
                     <option value="asset">asset</option>
                     <option value="liability">liability</option>
                   </select>
-                  <input className="input select mono" value={a.currency} onChange={(e) => updateAccount(a.id, 'currency', e.target.value)} />
+                  <input className="input select mono" value={a.currency} onChange={(e) => updateAccount(a.id, 'currency', e.target.value)} style={{ flex: '0 0 60px' }} />
                   <button className="icon-btn" onClick={() => removeAccount(a.id)}><Trash2 size={14} /></button>
                 </div>
               ))}
@@ -1496,9 +1496,9 @@ export default function App() {
               {recurringItems.map((r) => (
                 <div key={r.id} className="goal-row">
                   <input className="input" value={r.name} onChange={(e) => updateRecurring(r.id, 'name', e.target.value)} />
-                  <div className="goal-row-numbers">
+                  <div className="goal-row-numbers recurring-row-numbers">
                     <input type="number" className="input mono" placeholder="Amount" value={r.amount} onChange={(e) => updateRecurring(r.id, 'amount', Number(e.target.value))} />
-                    <input className="input mono" placeholder="Currency" value={r.currency} onChange={(e) => updateRecurring(r.id, 'currency', e.target.value)} />
+                    <input className="input mono" placeholder="Currency" value={r.currency} style={{ maxWidth: 70 }} onChange={(e) => updateRecurring(r.id, 'currency', e.target.value)} />
                     <select className="input select" value={r.frequency} onChange={(e) => updateRecurring(r.id, 'frequency', e.target.value)}>
                       <option value="monthly">monthly</option>
                       <option value="weekly">weekly</option>
@@ -1894,6 +1894,13 @@ textarea.input { resize: vertical; }
 .goal-row { border-bottom: 1px solid rgba(27,36,48,0.08); padding-bottom: 10px; margin-bottom: 10px; }
 .goal-row > .input { margin-bottom: 8px; }
 .goal-row-numbers { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; align-items: end; }
+@media (max-width: 480px) {
+  .goal-row-numbers { grid-template-columns: 1fr 1fr auto; }
+}
+.recurring-row-numbers { grid-template-columns: 1fr 70px 1fr 60px auto; }
+@media (max-width: 480px) {
+  .recurring-row-numbers { grid-template-columns: 1fr 60px auto; }
+}
 
 .checkbox-label {
   display: flex; align-items: center; gap: 6px;
