@@ -1234,7 +1234,7 @@ export default function App() {
                   <LineChart data={chartData}>
                     <CartesianGrid stroke="#E4DCC8" vertical={false} />
                     <XAxis dataKey="date" tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" />
-                    <YAxis tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} width={48} />
+                    <YAxis tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => { const rate = fxRates?.[displayCurrency] || 1; return `${((v / rate) / 1000).toFixed(0)}k`; }} width={48} />
                     <Tooltip formatter={(v) => fmtD(v)} contentStyle={{ fontFamily: 'IBM Plex Sans', fontSize: 12, borderRadius: 4 }} />
                     <Line type="monotone" dataKey="netWorth" stroke="#C9A24A" strokeWidth={2.5} dot={{ r: 3 }} />
                   </LineChart>
@@ -1305,7 +1305,7 @@ export default function App() {
                     <LineChart data={recurringChartData}>
                       <CartesianGrid stroke="#E4DCC8" vertical={false} />
                       <XAxis dataKey="date" tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" />
-                      <YAxis tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} width={48} />
+                      <YAxis tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => { const rate = fxRates?.[displayCurrency] || 1; return `${((v / rate) / 1000).toFixed(0)}k`; }} width={48} />
                       <Tooltip formatter={(v) => fmtD(v)} contentStyle={{ fontFamily: 'IBM Plex Sans', fontSize: 12, borderRadius: 4 }} />
                       <Legend wrapperStyle={{ fontFamily: 'IBM Plex Sans', fontSize: 11 }} />
                       <Line type="monotone" dataKey="income" name="Income" stroke="#5E8C7C" strokeWidth={2} dot={{ r: 3 }} />
