@@ -592,7 +592,17 @@ export default function App() {
         fxCurrencies.forEach((c) => {
           if (rates[c]) updatedFxRates[c] = parseFloat((1 / rates[c]).toFixed(6));
         });
-        persist({ ...data, fxRates: updatedFxRates, lastFxAutoRefresh: today });
+        // Also update the latest snapshot's stored FX rates so the dashboard
+        // recalculates immediately — without this, rateFor() uses the snapshot's
+        // older rates and the dashboard doesn't visually update until a manual Save.
+        const sorted = [...(data.snapshots || [])].sort((a, b) => a.date.localeCompare(b.date));
+        const latestSnap = sorted[sorted.length - 1];
+        const updatedSnapshots = latestSnap
+          ? data.snapshots.map((s) =>
+              s.id === latestSnap.id ? { ...s, fxRates: updatedFxRates } : s
+            )
+          : data.snapshots;
+        persist({ ...data, fxRates: updatedFxRates, lastFxAutoRefresh: today, snapshots: updatedSnapshots });
       } catch (e) {
         // Silent failure — this is a background convenience, not a user action.
         // The manual refresh button in Update remains available if needed.
