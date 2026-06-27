@@ -418,7 +418,7 @@ function WatchDial({ percent, label, sub, accent }) {
   const clamped = Math.max(0, Math.min(100, percent || 0));
   return (
     <div className="dial">
-      <svg viewBox="0 0 100 100" width="100" height="100">
+      <svg viewBox="0 0 100 100" width="110" height="110">
         {Array.from({ length: 12 }).map((_, i) => (
           <line key={i} x1="50" y1="6" x2="50" y2="12" stroke="#1B2430" strokeWidth="1.5" opacity="0.25" transform={`rotate(${i * 30} 50 50)`} />
         ))}
@@ -429,14 +429,12 @@ function WatchDial({ percent, label, sub, accent }) {
           strokeLinecap="round"
           transform="rotate(-90 50 50)"
         />
-        <text x="50" y="47" textAnchor="middle" fontFamily="IBM Plex Mono, monospace" fontSize="16" fontWeight="600" fill="#1B2430">
+        <text x="50" y="54" textAnchor="middle" fontFamily="IBM Plex Mono, monospace" fontSize="18" fontWeight="600" fill="#1B2430">
           {Math.round(clamped)}%
-        </text>
-        <text x="50" y="61" textAnchor="middle" fontFamily="IBM Plex Mono, monospace" fontSize="6" fill="#7A8699">
-          {sub}
         </text>
       </svg>
       <div className="dial-label">{label}</div>
+      {sub && <div className="dial-sub">{sub}</div>}
     </div>
   );
 }
@@ -1605,8 +1603,8 @@ export default function App() {
                 <div key={g.id} className="goal-row">
                   <input className="input" value={g.name} onChange={(e) => updateGoal(g.id, 'name', e.target.value)} />
                   <div className="goal-row-numbers">
-                    <input type="number" className="input mono" placeholder="Current" value={g.current} onChange={(e) => updateGoal(g.id, 'current', Number(e.target.value))} />
-                    <input type="number" className="input mono" placeholder="Target" value={g.target} onChange={(e) => updateGoal(g.id, 'target', Number(e.target.value))} />
+                    <input type="number" className="input mono" placeholder="Current" value={g.current || ''} onChange={(e) => updateGoal(g.id, 'current', Number(e.target.value))} />
+                    <input type="number" className="input mono" placeholder="Target" value={g.target || ''} onChange={(e) => updateGoal(g.id, 'target', Number(e.target.value))} />
                     <input type="date" className="input" value={g.targetDate} onChange={(e) => updateGoal(g.id, 'targetDate', e.target.value)} />
                     <button className="icon-btn" onClick={() => removeGoal(g.id)}><Trash2 size={14} /></button>
                   </div>
@@ -1621,7 +1619,7 @@ export default function App() {
                 <div key={r.id} className="goal-row">
                   <input className="input" value={r.name} onChange={(e) => updateRecurring(r.id, 'name', e.target.value)} />
                   <div className="goal-row-numbers recurring-row-numbers">
-                    <input type="number" className="input mono" placeholder="Amount" value={r.amount} onChange={(e) => updateRecurring(r.id, 'amount', Number(e.target.value))} />
+                    <input type="number" className="input mono" placeholder="Amount" value={r.amount || ''} onChange={(e) => updateRecurring(r.id, 'amount', Number(e.target.value))} />
                     <input className="input mono" placeholder="Currency" value={r.currency} style={{ maxWidth: 70 }} onChange={(e) => updateRecurring(r.id, 'currency', e.target.value)} />
                     <select className="input select" value={r.frequency} onChange={(e) => updateRecurring(r.id, 'frequency', e.target.value)}>
                       <option value="monthly">monthly</option>
@@ -1980,6 +1978,7 @@ const baseCSS = `
 .dial-row { display: flex; flex-wrap: wrap; gap: 14px; justify-content: flex-start; }
 .dial { display: flex; flex-direction: column; align-items: center; width: 110px; }
 .dial-label { font-size: 12px; font-weight: 500; text-align: center; margin-top: 4px; }
+.dial-sub { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #7A8699; text-align: center; margin-top: 3px; }
 
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
 .field label {
