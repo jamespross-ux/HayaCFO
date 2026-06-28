@@ -159,18 +159,28 @@ function calcCFOScore(cashNow, totalIn, totalOut, goals, liquidPortNow) {
   else if (surplusPct > 0.10) surplusScore = 25;
   else if (surplusPct > 0.05) surplusScore = 20;
   else if (surplusPct > 0)    surplusScore = 15;
-  else if (surplusPct > -0.05) surplusScore = 8; // near breakeven
-  else                         surplusScore = 2; // negative
+  else if (surplusPct > -0.05) surplusScore = 8;
+  else                         surplusScore = 2;
 
-  // ── Dimension 2: Cash buffer in months (30pts) ───────────
+  // ── Dimension 2: Combined liquidity buffer (30pts) ────────
+  // Cash + liquid portfolio both count — investments are accessible
+  // in an emergency (just a day or two slower than cash).
+  // Pure cash still matters for day-to-day flexibility, so we
+  // score combined coverage but give a small bonus for having
+  // at least 1 month in actual cash.
+  const combinedLiquidity = cashNow + liquidPortNow;
+  const combinedMonths = totalOut > 0 ? combinedLiquidity / totalOut : 0;
+  const cashMonths = totalOut > 0 ? cashNow / totalOut : 0;
   let bufferScore = 0;
-  const bufferMonths = totalOut > 0 ? cashNow / totalOut : 0;
-  if (bufferMonths >= 6)      bufferScore = 30;
-  else if (bufferMonths >= 3) bufferScore = 26;
-  else if (bufferMonths >= 2) bufferScore = 20;
-  else if (bufferMonths >= 1) bufferScore = 14;
-  else if (bufferMonths >= 0.5) bufferScore = 8;
-  else                          bufferScore = 2;
+  if (combinedMonths >= 12)     bufferScore = 30;
+  else if (combinedMonths >= 6) bufferScore = 28;
+  else if (combinedMonths >= 3) bufferScore = 24;
+  else if (combinedMonths >= 2) bufferScore = 18;
+  else if (combinedMonths >= 1) bufferScore = 12;
+  else if (combinedMonths >= 0.5) bufferScore = 6;
+  else                            bufferScore = 2;
+  // Small bonus if at least 1 month in actual cash (day-to-day buffer)
+  if (cashMonths >= 1 && bufferScore < 30) bufferScore = Math.min(30, bufferScore + 3);
 
   // ── Dimension 3: Goals progress (20pts) ──────────────────
   let goalsScore = 10; // neutral if no goals
@@ -185,7 +195,7 @@ function calcCFOScore(cashNow, totalIn, totalOut, goals, liquidPortNow) {
   }
 
   // ── Dimension 4: Liquid portfolio vs monthly income (15pts) ──
-  let portfolioScore = 7; // neutral if no income or portfolio data
+  let portfolioScore = 7; // neutral if no data
   if (totalIn > 0 && liquidPortNow > 0) {
     const portVsIncome = liquidPortNow / totalIn;
     if (portVsIncome >= 12)     portfolioScore = 15;
@@ -205,35 +215,46 @@ function getCFOScoreInsight(cashNow, totalIn, totalOut, goals, liquidPortNow, sc
   if (!totalIn || !totalOut) return null;
 
   const surplusPct = (totalIn - totalOut) / totalIn;
-  const bufferMonths = totalOut > 0 ? cashNow / totalOut : 0;
+  const combinedLiquidity = cashNow + liquidPortNow;
+  const combinedMonths = totalOut > 0 ? combinedLiquidity / totalOut : 0;
+  const cashMonths = totalOut > 0 ? cashNow / totalOut : 0;
   const portVsIncome = totalIn > 0 && liquidPortNow > 0 ? liquidPortNow / totalIn : 0;
   const activeGoals = (goals || []).filter((g) => g.target > 0);
   const avgGoalPct = activeGoals.length > 0
     ? activeGoals.reduce((s, g) => s + Math.min(g.current / g.target, 1), 0) / activeGoals.length
     : null;
 
-  // Find weakest dimension and give one actionable sentence
+  // Find weakest dimension and give one actionable sentence.
+  // Combined liquidity (cash + liquid portfolio) is used for buffer assessment —
+  // investments are accessible in an emergency, so a large portfolio offsets a
+  // thin cash balance without requiring the user to hold idle cash unnecessarily.
   const rate = fxRates?.[displayCurrency] || 1;
   const fmt = (v) => `${displayCurrency === 'GBP' ? '£' : displayCurrency + ' '}${Math.round(v / rate).toLocaleString()}`;
 
-  if (bufferMonths < 1) {
-    const target = totalOut * 3;
-    const needed = Math.max(0, target - cashNow);
-    return `Building your cash buffer to 3 months of outflows (${fmt(needed)} more) would have the biggest impact on your score.`;
+  if (surplusPct < 0) {
+    return `Your outflows currently exceed income — addressing this would have the biggest impact on your score and long-term financial health.`;
+  }
+  if (combinedMonths < 1) {
+    // Very low combined liquidity — genuinely needs attention
+    const needed = Math.max(0, totalOut * 3 - combinedLiquidity);
+    return `Your total accessible liquidity (cash + investments) covers less than a month of outflows — building this up would significantly improve your score.`;
   }
   if (surplusPct < 0.05) {
-    return `Your monthly surplus is very tight — reducing outflows or increasing income would strengthen your score significantly.`;
+    return `Your monthly surplus is very tight — even small reductions in outflows would strengthen your score and financial resilience.`;
   }
-  if (bufferMonths < 3) {
-    const needed = Math.max(0, totalOut * 3 - cashNow);
-    return `Topping up your cash buffer by ${fmt(needed)} to reach 3 months of outflows would move your score meaningfully.`;
+  if (cashMonths < 1 && combinedMonths >= 3) {
+    // Good combined coverage but thin day-to-day cash
+    return `Your investments provide strong overall security. Keeping around 1 month of outflows in cash (${fmt(totalOut)} approx) would add useful day-to-day flexibility.`;
+  }
+  if (combinedMonths < 3) {
+    const needed = Math.max(0, totalOut * 3 - combinedLiquidity);
+    return `Growing your combined liquidity (cash + investments) by ${fmt(needed)} to cover 3 months of outflows would move your score meaningfully.`;
   }
   if (avgGoalPct !== null && avgGoalPct < 0.25) {
-    return `Your goals are in early stages — consistent contributions, however small, will improve this dimension over time.`;
+    return `Your goals are in early stages — consistent contributions, however small, will improve this dimension steadily over time.`;
   }
   if (portVsIncome < 2) {
-    const target = totalIn * 4;
-    const needed = Math.max(0, target - liquidPortNow);
+    const needed = Math.max(0, totalIn * 4 - liquidPortNow);
     return `Growing your liquid investments by ${fmt(needed)} to reach 4 months' income would lift your portfolio score.`;
   }
   return `Your finances are in good shape — keep maintaining your surplus and buffer to protect your score.`;
@@ -351,6 +372,35 @@ function buildSystemPrompt(data) {
     lines.push('=== LIFE CONTEXT LOG (most recent first) ===');
     [...lifeLog].reverse().forEach((l) => lines.push(`- ${l.date}: ${l.text}`));
   }
+
+  // CFO Score — calculated from four dimensions so the CFO can discuss it intelligently
+  const incomes = (recurringItems || []).filter((r) => r.direction === 'in');
+  const outflows = (recurringItems || []).filter((r) => r.direction === 'out');
+  const tIn = incomes.reduce((s, r) => s + monthlyInBase(r, fxRates, baseCurrency), 0);
+  const tOut = outflows.reduce((s, r) => s + monthlyInBase(r, fxRates, baseCurrency), 0);
+  const latestSnap = sorted[sorted.length - 1];
+  const cNow = latestSnap ? accountsTotal(latestSnap, accounts, fxRates, baseCurrency) : 0;
+  const liqPortNow = latestSnap ? portfolioTotal(latestSnap, portfolio, fxRates, baseCurrency, { excludeIlliquid: true }) : 0;
+  const score = calcCFOScore(cNow, tIn, tOut, goals, liqPortNow);
+  if (score !== null && tOut > 0) {
+    const combinedMonths = ((cNow + liqPortNow) / tOut).toFixed(1);
+    const cashMonths = (cNow / tOut).toFixed(1);
+    const surplusPct = tIn > 0 ? Math.round(((tIn - tOut) / tIn) * 100) : 0;
+    const portVsIncome = tIn > 0 ? (liqPortNow / tIn).toFixed(1) : 0;
+    const activeGoals = (goals || []).filter((g) => g.target > 0);
+    const avgGoalPct = activeGoals.length > 0
+      ? Math.round(activeGoals.reduce((s, g) => s + Math.min(g.current / g.target, 1), 0) / activeGoals.length * 100)
+      : null;
+    lines.push('');
+    lines.push('=== CFO SCORE ===');
+    lines.push(`Current score: ${score} / 100`);
+    lines.push(`- Monthly surplus: ${surplusPct}% of income (35pts dimension)`);
+    lines.push(`- Combined liquidity: ${combinedMonths} months of outflows covered by cash + liquid investments (${cashMonths} months in cash alone) (30pts dimension)`);
+    lines.push(`- Goals progress: ${avgGoalPct !== null ? avgGoalPct + '% average across active goals' : 'no goals set'} (20pts dimension)`);
+    lines.push(`- Portfolio vs income: ${portVsIncome} months of income invested in liquid portfolio (15pts dimension)`);
+    lines.push(`The score is calculated automatically from the user's financial data. You can explain it, discuss what's driving it, and suggest what would move it higher. Be encouraging but honest.`);
+  }
+
   return lines.join('\n');
 }
 
