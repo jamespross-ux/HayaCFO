@@ -507,6 +507,7 @@ export default function App() {
   const [importText, setImportText] = useState('');
   const [importStatus, setImportStatus] = useState(null);
   const [showFigures, setShowFigures] = useState(true);
+  const [showStreakPopover, setShowStreakPopover] = useState(false);
   const [fxLoading, setFxLoading] = useState(false);
   const [fxError, setFxError] = useState(null);
   const [attachment, setAttachment] = useState(null);
@@ -1159,12 +1160,36 @@ export default function App() {
       <style>{baseCSS}</style>
 
       <header className="masthead">
-        <div className="masthead-eyebrow">
+        <div className="masthead-eyebrow" onClick={() => setShowStreakPopover(false)}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span>Personal CFO</span>
             {data.loginStreak?.count >= 2 && (
-              <span className="streak-badge" title={`Longest streak: ${data.loginStreak.longest} days`}>
-                🔥 {data.loginStreak.count}
+              <span style={{ position: 'relative' }}>
+                <button
+                  className="streak-badge"
+                  style={{ background: 'rgba(201,162,74,0.18)', border: 'none', cursor: 'pointer' }}
+                  onClick={(e) => { e.stopPropagation(); setShowStreakPopover((v) => !v); }}
+                >
+                  🔥 {data.loginStreak.count}
+                </button>
+                {showStreakPopover && (
+                  <div className="streak-popover" onClick={(e) => e.stopPropagation()}>
+                    <div className="streak-popover-title">Login Streak</div>
+                    <p className="streak-popover-body">
+                      {data.loginStreak.count} day streak —{' '}
+                      {data.loginStreak.count >= 30
+                        ? 'Outstanding consistency. Your CFO is well informed.'
+                        : data.loginStreak.count >= 14
+                        ? 'Two weeks strong — great financial habit building.'
+                        : data.loginStreak.count >= 7
+                        ? 'A full week in — good to see you staying on top of it.'
+                        : 'Good to see you building the habit — keep it going.'}
+                      {' '}{data.loginStreak.longest > data.loginStreak.count
+                        ? `Longest streak: ${data.loginStreak.longest} days.`
+                        : 'This is your best streak yet.'}
+                    </p>
+                  </div>
+                )}
               </span>
             )}
           </span>
@@ -1759,6 +1784,33 @@ const baseCSS = `
   background: rgba(201,162,74,0.18);
   border-radius: 10px;
   padding: 2px 8px;
+}
+.streak-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  width: 210px;
+  background: #1B2C42;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  padding: 10px 12px;
+  z-index: 50;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+.streak-popover-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #C9A24A;
+  margin-bottom: 5px;
+}
+.streak-popover-body {
+  margin: 0;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 12px;
+  color: #D4DCE8;
+  line-height: 1.5;
 }
 .masthead-eye-btn {
   background: rgba(255,255,255,0.08);
