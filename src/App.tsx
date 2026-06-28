@@ -632,11 +632,11 @@ const QUICK_PROMPTS = [
   'Review my current position and flag anything important.',
   'What should I do about my emergency fund?',
   'How exposed am I to GBP/USD vs my AED income?',
-  "What's worth asking about the Caroline Ross / household bills flow?",
+  "What's worth asking about my household bills and regular transfers?",
 ];
 
 const INTERVIEW_PROMPT =
-  "Based on everything you currently know about my accounts, portfolio, recurring cash flows, goals, and the known gaps — interview me with around 10 specific questions that would help you understand my situation better and give sharper recommendations going forward. Ground the questions in my actual numbers and items where relevant (e.g. specific holdings, the Caroline Ross flow, NS&I, my goals) rather than generic finance questions. List them all now, numbered, and I'll answer through as many as I can.";
+  "Based on everything you currently know about my accounts, portfolio, recurring cash flows, goals, and the known gaps — interview me with around 10 specific questions that would help you understand my situation better and give sharper recommendations going forward. Ground the questions in my actual numbers and items where relevant (e.g. specific holdings, my goals, any known gaps) rather than generic finance questions. List them all now, numbered, and I'll answer through as many as I can.";
 
 export default function App() {
   const [session, setSession] = useState(undefined);

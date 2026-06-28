@@ -1,96 +1,131 @@
-# Personal CFO — standalone
+# Personal CFO
 
-A standalone version of your Personal CFO dashboard, ready to deploy to Vercel
-and add to your iPhone home screen.
+A personal finance dashboard with an AI CFO built in. Track your net worth, manage cash flow, monitor investments, and have real financial conversations with an AI that knows your full picture.
 
-This is a **separate copy** — it does not affect the artifact you use day to
-day in Claude. Your data here starts from the same seed values, but the two
-live independently (each stores its data separately: this one in your
-browser's `localStorage`, the Claude one in the artifact's storage).
+Built for people who care about their finances but don't want to live in a spreadsheet.
 
-## What's different from the Claude artifact
+---
 
-1. **Storage**: uses `localStorage` instead of Claude's `window.storage`.
-   Your data stays on this device/browser. Use the existing "Export" button
-   (Setup tab) periodically to copy a JSON backup somewhere safe — clearing
-   Safari's site data would otherwise wipe it.
-2. **CFO Chat**: instead of calling Anthropic's API directly (which only
-   works inside Claude.ai), requests go to `/api/chat`, a small serverless
-   function that holds your API key and forwards the request. Your key is
-   never sent to the browser.
+## Features
 
-## 1. Get an Anthropic API key
+- **Live dashboard** — net worth, cash, liquid portfolio, and illiquid assets at a glance
+- **Multi-currency** — display in GBP, AED, USD, or any currency; toggle secondary figures on/off
+- **CFO Score** — weighted financial health score across surplus, liquidity, goals, and portfolio
+- **CFO Chat** — AI CFO with full context of your financial picture; asks smart questions, gives direct answers
+- **Life log** — capture key financial moments; the CFO proactively offers to log things for you
+- **Goals tracker** — visual progress dials per goal
+- **Recurring cash flow** — income and outflow tracking with trend charts
+- **Portfolio risk allocation** — Low, Balanced, High breakdown with visual bar
+- **Illiquid asset tracking** — property equity, pension etc. kept separate from liquid net worth
+- **Auto FX rate refresh** — rates update daily on login, dashboard recalculates immediately
+- **Login streak** — tracks daily engagement with contextual messages
+- **Snapshot history** — net worth over time chart from saved updates
+- **Export / import** — full JSON backup and restore
+- **Secure** — Supabase auth with RLS; each user can only access their own data
 
-If you don't already have one:
-1. Go to https://console.anthropic.com
-2. Create an API key (Settings -> API Keys)
-3. Note: this is billed separately from any Claude.ai subscription —
-   API usage is pay-as-you-go. CFO Chat messages are small (capped history +
-   one system prompt), so cost should be minimal for personal use, but it's
-   worth keeping an eye on usage in the console.
+---
 
-## 2. Push this folder to GitHub
+## Tech Stack
 
-```bash
-cd personal-cfo-standalone
-git init
-git add .
-git commit -m "Personal CFO standalone"
-```
+| Layer | Technology |
+|---|---|
+| Frontend | React + TypeScript + Vite |
+| Auth + Database | Supabase (email/password auth, PostgreSQL with RLS) |
+| Hosting | Vercel |
+| AI | Anthropic Claude API (claude-sonnet-4-6) via Vercel edge function |
+| FX Rates | ExchangeRate-API |
 
-Create a new (private!) repo on GitHub and push:
+---
 
-```bash
-git remote add origin https://github.com/<you>/personal-cfo.git
-git branch -M main
-git push -u origin main
-```
+## Deploying Your Own Instance
 
-Keep the repo **private** — while your API key itself isn't in the code,
-this is your personal finance dashboard.
-
-## 3. Deploy to Vercel
-
-1. Go to https://vercel.com and sign in (GitHub login is easiest)
-2. "Add New" -> "Project" -> import the repo you just pushed
-3. Vercel auto-detects Vite — leave the default build settings
-4. Before deploying (or after, then redeploy), go to
-   **Project Settings -> Environment Variables** and add:
-   - Name: `ANTHROPIC_API_KEY`
-   - Value: the key from step 1
-5. Deploy. You'll get a URL like `https://personal-cfo-xxxx.vercel.app`
-
-## 4. Add to iPhone home screen
-
-1. Open your Vercel URL in **Safari** on your iPhone
-2. Tap the Share icon -> **Add to Home Screen**
-3. Name it "Personal CFO" and tap Add
-
-It'll now open full-screen, like a native app, with no Safari address bar.
-
-## 5. First run
-
-The app loads with the same seed data as your Claude artifact. Go to
-Update/Setup and re-enter your current real numbers, or paste in your data
-via the Setup tab if you've previously used Export to get a JSON copy.
-
-## Local development (optional)
+### 1. Clone the repo
 
 ```bash
+git clone https://github.com/jamespross-ux/PersonalCFO.git
+cd PersonalCFO
 npm install
+```
+
+### 2. Set up Supabase
+
+Create a project at [supabase.com](https://supabase.com) and run this SQL in the editor:
+
+```sql
+create table cfo_data (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users not null unique,
+  data jsonb not null default '{}',
+  updated_at timestamptz default now()
+);
+
+alter table cfo_data enable row level security;
+
+create policy "Users can only access their own data"
+  on cfo_data for all
+  using (auth.uid() = user_id);
+```
+
+### 3. Environment variables
+
+Create a `.env` file:
+
+```
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_EXCHANGERATE_API_KEY=your_exchangerate_api_key
+```
+
+Get a free ExchangeRate-API key at [exchangerate-api.com](https://www.exchangerate-api.com).
+
+### 4. Vercel edge function
+
+The AI chat proxies through `/api/chat.ts` to keep your Anthropic API key server-side. Add these to your Vercel project environment variables:
+
+```
+ANTHROPIC_API_KEY=your_anthropic_api_key
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_EXCHANGERATE_API_KEY=your_exchangerate_api_key
+```
+
+### 5. Deploy
+
+```bash
+npm install -g vercel
+vercel
+```
+
+Or connect your GitHub repo to Vercel for automatic deployments on push.
+
+### 6. Run locally
+
+```bash
 npm run dev
 ```
 
-`/api/chat` only works once deployed to Vercel (or via `vercel dev`), since
-it's a serverless function — locally with plain `npm run dev` the CFO Chat
-tab will show a connection error, but the dashboard, Update, and Setup tabs
-work fine.
+---
 
-## Keeping it updated
+## Project Structure
 
-If you ask Claude to make further changes to your Claude artifact, those
-won't automatically appear here. Bring the updated `.tsx` code over to
-`src/App.tsx` in this repo (keeping the two adaptations above — the
-`localStorage` calls and the `/api/chat` endpoint), commit, and push; Vercel
-redeploys automatically.
-# PersonalCFO
+```
+/src
+  App.tsx       — main application
+/api
+  chat.ts       — Vercel edge function (Anthropic API proxy)
+```
+
+---
+
+## Notes
+
+- All data is stored per-user in Supabase with row-level security
+- The Anthropic API key is never exposed to the client
+- Base currency is set per user (default AED); display currency is cosmetic
+- CFO Score is calculated client-side — no AI call needed for the score itself
+
+---
+
+## License
+
+MIT
