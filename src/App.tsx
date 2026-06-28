@@ -165,22 +165,25 @@ function calcCFOScore(cashNow, totalIn, totalOut, goals, liquidPortNow) {
   // ── Dimension 2: Combined liquidity buffer (30pts) ────────
   // Cash + liquid portfolio both count — investments are accessible
   // in an emergency (just a day or two slower than cash).
-  // Pure cash still matters for day-to-day flexibility, so we
-  // score combined coverage but give a small bonus for having
-  // at least 1 month in actual cash.
+  // However, thin cash is still a real weakness — if cash alone is
+  // under 1 month, we cap the buffer score even if combined is high.
   const combinedLiquidity = cashNow + liquidPortNow;
   const combinedMonths = totalOut > 0 ? combinedLiquidity / totalOut : 0;
   const cashMonths = totalOut > 0 ? cashNow / totalOut : 0;
   let bufferScore = 0;
-  if (combinedMonths >= 12)     bufferScore = 30;
-  else if (combinedMonths >= 6) bufferScore = 28;
-  else if (combinedMonths >= 3) bufferScore = 24;
-  else if (combinedMonths >= 2) bufferScore = 18;
-  else if (combinedMonths >= 1) bufferScore = 12;
-  else if (combinedMonths >= 0.5) bufferScore = 6;
+  if (combinedMonths >= 12)     bufferScore = 26;
+  else if (combinedMonths >= 6) bufferScore = 23;
+  else if (combinedMonths >= 3) bufferScore = 19;
+  else if (combinedMonths >= 2) bufferScore = 14;
+  else if (combinedMonths >= 1) bufferScore = 10;
+  else if (combinedMonths >= 0.5) bufferScore = 5;
   else                            bufferScore = 2;
-  // Small bonus if at least 1 month in actual cash (day-to-day buffer)
-  if (cashMonths >= 1 && bufferScore < 30) bufferScore = Math.min(30, bufferScore + 3);
+  // Bonus pts for healthy actual cash (day-to-day buffer)
+  if (cashMonths >= 3)      bufferScore = Math.min(30, bufferScore + 4);
+  else if (cashMonths >= 1) bufferScore = Math.min(30, bufferScore + 2);
+  // Cap if cash is very thin — thin cash is a real weakness regardless of portfolio
+  if (cashMonths < 0.5)     bufferScore = Math.min(bufferScore, 14);
+  else if (cashMonths < 1)  bufferScore = Math.min(bufferScore, 22);
 
   // ── Dimension 3: Goals progress (20pts) ──────────────────
   let goalsScore = 10; // neutral if no goals
@@ -199,11 +202,11 @@ function calcCFOScore(cashNow, totalIn, totalOut, goals, liquidPortNow) {
   if (totalIn > 0 && liquidPortNow > 0) {
     const portVsIncome = liquidPortNow / totalIn;
     if (portVsIncome >= 12)     portfolioScore = 15;
-    else if (portVsIncome >= 6) portfolioScore = 15;
-    else if (portVsIncome >= 4) portfolioScore = 13;
-    else if (portVsIncome >= 2) portfolioScore = 11;
-    else if (portVsIncome >= 1) portfolioScore = 8;
-    else                         portfolioScore = 3;
+    else if (portVsIncome >= 8) portfolioScore = 13;
+    else if (portVsIncome >= 4) portfolioScore = 11;
+    else if (portVsIncome >= 2) portfolioScore = 8;
+    else if (portVsIncome >= 1) portfolioScore = 5;
+    else                         portfolioScore = 2;
   }
 
   const raw = surplusScore + bufferScore + goalsScore + portfolioScore;
