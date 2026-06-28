@@ -142,6 +142,104 @@ const monthlyInBase = (item, dataFx, base) => {
   return Number(item.amount || 0) * rate * mult;
 };
 
+// ── CFO Score ────────────────────────────────────────────────────────────────
+// A 0–100 score reflecting overall financial health across four dimensions.
+// Calibrated to be encouraging — a decent position scores 65–75, strong 80+.
+// Minimum score of 35 when there's enough data so nobody feels immediately alarmed.
+
+function calcCFOScore(cashNow, totalIn, totalOut, goals, liquidPortNow) {
+  const hasCoreDta = totalIn > 0 && totalOut > 0;
+  if (!hasCoreDta) return null; // not enough data yet
+
+  // ── Dimension 1: Monthly surplus (35pts) ─────────────────
+  let surplusScore = 0;
+  const surplusPct = (totalIn - totalOut) / totalIn;
+  if (surplusPct > 0.30)      surplusScore = 35;
+  else if (surplusPct > 0.20) surplusScore = 30;
+  else if (surplusPct > 0.10) surplusScore = 25;
+  else if (surplusPct > 0.05) surplusScore = 20;
+  else if (surplusPct > 0)    surplusScore = 15;
+  else if (surplusPct > -0.05) surplusScore = 8; // near breakeven
+  else                         surplusScore = 2; // negative
+
+  // ── Dimension 2: Cash buffer in months (30pts) ───────────
+  let bufferScore = 0;
+  const bufferMonths = totalOut > 0 ? cashNow / totalOut : 0;
+  if (bufferMonths >= 6)      bufferScore = 30;
+  else if (bufferMonths >= 3) bufferScore = 26;
+  else if (bufferMonths >= 2) bufferScore = 20;
+  else if (bufferMonths >= 1) bufferScore = 14;
+  else if (bufferMonths >= 0.5) bufferScore = 8;
+  else                          bufferScore = 2;
+
+  // ── Dimension 3: Goals progress (20pts) ──────────────────
+  let goalsScore = 10; // neutral if no goals
+  const activeGoals = (goals || []).filter((g) => g.target > 0);
+  if (activeGoals.length > 0) {
+    const avgPct = activeGoals.reduce((s, g) => s + Math.min(g.current / g.target, 1), 0) / activeGoals.length;
+    if (avgPct >= 0.75)      goalsScore = 20;
+    else if (avgPct >= 0.50) goalsScore = 16;
+    else if (avgPct >= 0.25) goalsScore = 12;
+    else if (avgPct >= 0.10) goalsScore = 8;
+    else                      goalsScore = 4;
+  }
+
+  // ── Dimension 4: Liquid portfolio vs monthly income (15pts) ──
+  let portfolioScore = 7; // neutral if no income or portfolio data
+  if (totalIn > 0 && liquidPortNow > 0) {
+    const portVsIncome = liquidPortNow / totalIn;
+    if (portVsIncome >= 12)     portfolioScore = 15;
+    else if (portVsIncome >= 6) portfolioScore = 15;
+    else if (portVsIncome >= 4) portfolioScore = 13;
+    else if (portVsIncome >= 2) portfolioScore = 11;
+    else if (portVsIncome >= 1) portfolioScore = 8;
+    else                         portfolioScore = 3;
+  }
+
+  const raw = surplusScore + bufferScore + goalsScore + portfolioScore;
+  return Math.max(35, Math.min(100, Math.round(raw)));
+}
+
+// Returns the single most impactful action to improve the score
+function getCFOScoreInsight(cashNow, totalIn, totalOut, goals, liquidPortNow, score, displayCurrency, fxRates) {
+  if (!totalIn || !totalOut) return null;
+
+  const surplusPct = (totalIn - totalOut) / totalIn;
+  const bufferMonths = totalOut > 0 ? cashNow / totalOut : 0;
+  const portVsIncome = totalIn > 0 && liquidPortNow > 0 ? liquidPortNow / totalIn : 0;
+  const activeGoals = (goals || []).filter((g) => g.target > 0);
+  const avgGoalPct = activeGoals.length > 0
+    ? activeGoals.reduce((s, g) => s + Math.min(g.current / g.target, 1), 0) / activeGoals.length
+    : null;
+
+  // Find weakest dimension and give one actionable sentence
+  const rate = fxRates?.[displayCurrency] || 1;
+  const fmt = (v) => `${displayCurrency === 'GBP' ? '£' : displayCurrency + ' '}${Math.round(v / rate).toLocaleString()}`;
+
+  if (bufferMonths < 1) {
+    const target = totalOut * 3;
+    const needed = Math.max(0, target - cashNow);
+    return `Building your cash buffer to 3 months of outflows (${fmt(needed)} more) would have the biggest impact on your score.`;
+  }
+  if (surplusPct < 0.05) {
+    return `Your monthly surplus is very tight — reducing outflows or increasing income would strengthen your score significantly.`;
+  }
+  if (bufferMonths < 3) {
+    const needed = Math.max(0, totalOut * 3 - cashNow);
+    return `Topping up your cash buffer by ${fmt(needed)} to reach 3 months of outflows would move your score meaningfully.`;
+  }
+  if (avgGoalPct !== null && avgGoalPct < 0.25) {
+    return `Your goals are in early stages — consistent contributions, however small, will improve this dimension over time.`;
+  }
+  if (portVsIncome < 2) {
+    const target = totalIn * 4;
+    const needed = Math.max(0, target - liquidPortNow);
+    return `Growing your liquid investments by ${fmt(needed)} to reach 4 months' income would lift your portfolio score.`;
+  }
+  return `Your finances are in good shape — keep maintaining your surplus and buffer to protect your score.`;
+}
+
+
 function buildSystemPrompt(data) {
   const { baseCurrency, displayCurrency = 'GBP', displaySecondaryCurrency = 'AED', accounts, portfolio, goals, recurringItems, knownGaps, snapshots, lifeLog, fxRates } = data;
   const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
@@ -508,6 +606,7 @@ export default function App() {
   const [importStatus, setImportStatus] = useState(null);
   const [showFigures, setShowFigures] = useState(true);
   const [showStreakPopover, setShowStreakPopover] = useState(false);
+  const [showScorePopover, setShowScorePopover] = useState(false);
   const [fxLoading, setFxLoading] = useState(false);
   const [fxError, setFxError] = useState(null);
   const [attachment, setAttachment] = useState(null);
@@ -806,6 +905,11 @@ export default function App() {
   const outflowItems = recurringItems.filter((r) => r.direction === 'out');
   const totalIn = incomeItems.reduce((s, r) => s + monthlyInBase(r, fxRates, baseCurrency), 0);
   const totalOut = outflowItems.reduce((s, r) => s + monthlyInBase(r, fxRates, baseCurrency), 0);
+
+  const cfoScore = calcCFOScore(cashNow, totalIn, totalOut, goals, liquidPortNow);
+  const cfoScoreInsight = cfoScore !== null
+    ? getCFOScoreInsight(cashNow, totalIn, totalOut, goals, liquidPortNow, cfoScore, displayCurrency, fxRates)
+    : null;
 
   const updateAccount = (id, field, value) => persist({ ...data, accounts: accounts.map((a) => (a.id === id ? { ...a, [field]: value } : a)) });
   const addAccount = () => persist({ ...data, accounts: [...accounts, { id: uid(), name: 'New account', type: 'asset', currency: baseCurrency }] });
@@ -1160,7 +1264,7 @@ export default function App() {
       <style>{baseCSS}</style>
 
       <header className="masthead">
-        <div className="masthead-eyebrow" onClick={() => setShowStreakPopover(false)}>
+        <div className="masthead-eyebrow" onClick={() => { setShowStreakPopover(false); setShowScorePopover(false); }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span>Personal CFO</span>
             {data.loginStreak?.count >= 2 && (
@@ -1168,7 +1272,7 @@ export default function App() {
                 <button
                   className="streak-badge"
                   style={{ background: 'rgba(201,162,74,0.18)', border: 'none', cursor: 'pointer' }}
-                  onClick={(e) => { e.stopPropagation(); setShowStreakPopover((v) => !v); }}
+                  onClick={(e) => { e.stopPropagation(); setShowStreakPopover((v) => !v); setShowScorePopover(false); }}
                 >
                   🔥 {data.loginStreak.count}
                 </button>
@@ -1193,13 +1297,36 @@ export default function App() {
               </span>
             )}
           </span>
-          <button
-            className="masthead-eye-btn"
-            onClick={() => setShowFigures((v) => !v)}
-            title={showFigures ? 'Hide figures' : 'Show figures'}
-          >
-            {showFigures ? <EyeOff size={15} /> : <Eye size={15} />}
-          </button>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {cfoScore !== null && (
+              <span style={{ position: 'relative' }}>
+                <button
+                  className="cfo-score-btn"
+                  onClick={(e) => { e.stopPropagation(); setShowScorePopover((v) => !v); setShowStreakPopover(false); }}
+                >
+                  CFO Score · {cfoScore}
+                </button>
+                {showScorePopover && (
+                  <div className="score-popover" onClick={(e) => e.stopPropagation()}>
+                    <div className="score-popover-title">CFO Score · {cfoScore} / 100</div>
+                    <div className="score-bar-track">
+                      <div className="score-bar-fill" style={{ width: `${cfoScore}%` }} />
+                    </div>
+                    {cfoScoreInsight && (
+                      <p className="score-popover-body">{cfoScoreInsight}</p>
+                    )}
+                  </div>
+                )}
+              </span>
+            )}
+            <button
+              className="masthead-eye-btn"
+              onClick={() => setShowFigures((v) => !v)}
+              title={showFigures ? 'Hide figures' : 'Show figures'}
+            >
+              {showFigures ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </span>
         </div>
 
         <div style={{ filter: showFigures ? 'none' : 'blur(8px)', userSelect: showFigures ? 'auto' : 'none', transition: 'filter 0.2s' }}>
@@ -1784,6 +1911,62 @@ const baseCSS = `
   background: rgba(201,162,74,0.18);
   border-radius: 10px;
   padding: 2px 8px;
+}
+.cfo-score-btn {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #C9A24A;
+  background: none;
+  border: 1px solid rgba(201,162,74,0.35);
+  border-radius: 10px;
+  padding: 2px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.score-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 230px;
+  background: #1B2C42;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  padding: 12px 14px;
+  z-index: 50;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+.score-popover-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #C9A24A;
+  margin-bottom: 8px;
+}
+.score-bar-track {
+  width: 100%;
+  height: 4px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 2px;
+  margin-bottom: 10px;
+}
+.score-bar-fill {
+  height: 100%;
+  background: #C9A24A;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+.score-popover-body {
+  margin: 0;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 12px;
+  color: #D4DCE8;
+  line-height: 1.5;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
 }
 .streak-popover {
   position: absolute;
