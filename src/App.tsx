@@ -1368,6 +1368,16 @@ export default function App() {
                     {cfoScoreInsight && (
                       <p className="score-popover-body">{cfoScoreInsight}</p>
                     )}
+                    <button
+                      className="score-popover-cta"
+                      onClick={() => {
+                        setShowScorePopover(false);
+                        setChatInput('Explain my CFO Score and how to improve it.');
+                        setTab('chat');
+                      }}
+                    >
+                      Ask your CFO →
+                    </button>
                   </div>
                 )}
               </span>
@@ -2020,6 +2030,21 @@ const baseCSS = `
   text-transform: none;
   letter-spacing: normal;
   font-weight: 400;
+}
+.score-popover-cta {
+  display: block;
+  margin-top: 10px;
+  background: none;
+  border: none;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 11px;
+  color: #C9A24A;
+  cursor: pointer;
+  padding: 0;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 500;
+  opacity: 0.85;
 }
 .streak-popover {
   position: absolute;
