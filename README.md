@@ -129,3 +129,16 @@ npm run dev
 ## License
 
 MIT
+
+---
+
+## Get in Touch
+
+If you find this useful, have ideas, or want to connect — I'd love to hear from you.
+
+**James Ross**
+- 💼 [LinkedIn](https://www.linkedin.com/in/jamesr19/)
+- 📧 jamespross@hotmail.com
+- 💬 WhatsApp: +971 58 528 1208
+
+If this project helped you, a ⭐ on the repo is always appreciated.
