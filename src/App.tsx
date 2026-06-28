@@ -1811,6 +1811,9 @@ const baseCSS = `
   font-size: 12px;
   color: #D4DCE8;
   line-height: 1.5;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
 }
 .masthead-eye-btn {
   background: rgba(255,255,255,0.08);
