@@ -374,10 +374,10 @@ function buildSystemPrompt(data) {
   }
 
   // CFO Score — calculated from four dimensions so the CFO can discuss it intelligently
-  const incomes = (recurringItems || []).filter((r) => r.direction === 'in');
-  const outflows = (recurringItems || []).filter((r) => r.direction === 'out');
-  const tIn = incomes.reduce((s, r) => s + monthlyInBase(r, fxRates, baseCurrency), 0);
-  const tOut = outflows.reduce((s, r) => s + monthlyInBase(r, fxRates, baseCurrency), 0);
+  const scoreIncomes = (recurringItems || []).filter((r) => r.direction === 'in');
+  const scoreOutflows = (recurringItems || []).filter((r) => r.direction === 'out');
+  const tIn = scoreIncomes.reduce((s, r) => s + monthlyInBase(r, fxRates, baseCurrency), 0);
+  const tOut = scoreOutflows.reduce((s, r) => s + monthlyInBase(r, fxRates, baseCurrency), 0);
   const latestSnap = sorted[sorted.length - 1];
   const cNow = latestSnap ? accountsTotal(latestSnap, accounts, fxRates, baseCurrency) : 0;
   const liqPortNow = latestSnap ? portfolioTotal(latestSnap, portfolio, fxRates, baseCurrency, { excludeIlliquid: true }) : 0;
