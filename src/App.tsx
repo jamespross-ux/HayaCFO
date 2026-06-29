@@ -830,7 +830,7 @@ export default function App() {
       <div className="cfo">
         <style>{baseCSS}</style>
         <div className="loading-screen" style={{ flexDirection: 'column', gap: 16, padding: 32 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 4 }}>
             <svg width="24" height="24" viewBox="0 0 120 120" fill="none">
               <rect x="25" y="30" width="16" height="60" rx="2" fill="#101C2E"/>
               <rect x="79" y="30" width="16" height="60" rx="2" fill="#101C2E"/>
