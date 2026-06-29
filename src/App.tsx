@@ -874,9 +874,20 @@ export default function App() {
 
   if (!data || !updateForm) {
     return (
-      <div className="loading-screen">
+      <div className="loading-screen" style={{ background: '#101C2E', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
         <style>{baseCSS}</style>
-        Loading your CFO…
+        <svg width="48" height="48" viewBox="0 0 120 120" fill="none">
+          <rect x="25" y="30" width="16" height="60" rx="2" fill="#F7F3EA"/>
+          <rect x="79" y="30" width="16" height="60" rx="2" fill="#F7F3EA"/>
+          <rect x="25" y="52" width="70" height="16" rx="2" fill="#F7F3EA"/>
+          <rect x="79" y="30" width="16" height="16" rx="2" fill="#C9A24A"/>
+        </svg>
+        <div style={{ fontFamily: 'IBM Plex Sans, sans-serif', fontSize: 24, fontWeight: 700, letterSpacing: '-0.5px', color: '#F7F3EA' }}>
+          Haya<span style={{ color: '#C9A24A' }}>CFO</span>
+        </div>
+        <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#7A8699' }}>
+          Loading your CFO…
+        </div>
       </div>
     );
   }
@@ -1980,11 +1991,12 @@ const baseCSS = `
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: #C9A24A;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  text-transform: none;
+  color: #F7F3EA;
   margin-bottom: 14px;
 }
 .streak-badge {
