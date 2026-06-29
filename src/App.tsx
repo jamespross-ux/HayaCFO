@@ -1354,7 +1354,7 @@ export default function App() {
             </svg>
             <span>Haya<span style={{ color: '#C9A24A' }}>CFO</span></span>
             {data.loginStreak?.count >= 2 && (
-              <span style={{ position: 'relative' }}>
+              <span style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <button
                   className="streak-badge"
                   style={{ background: 'rgba(201,162,74,0.18)', border: 'none', cursor: 'pointer' }}
