@@ -1346,7 +1346,7 @@ export default function App() {
       <header className="masthead">
         <div className="masthead-eyebrow" onClick={() => { setShowStreakPopover(false); setShowScorePopover(false); }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <svg width="20" height="20" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+            <svg width="28" height="28" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
               <rect x="25" y="30" width="16" height="60" rx="2" fill="#F7F3EA"/>
               <rect x="79" y="30" width="16" height="60" rx="2" fill="#F7F3EA"/>
               <rect x="25" y="52" width="70" height="16" rx="2" fill="#F7F3EA"/>
