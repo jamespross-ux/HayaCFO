@@ -72,7 +72,7 @@ const seed = {
     {
       role: 'assistant',
       content:
-        "## Welcome to your Personal CFO\n\nThis is a starter template — no real data is loaded yet.\n\nGo to **Update** to enter your account balances, portfolio values, and recurring income/outflows, or use **Setup** to paste in a previously exported JSON backup.\n\nOnce your numbers are in, ask me anything — I can review your position, talk through your risk allocation, or help with planning.",
+        "## Welcome to your HayaCFO\n\nThis is a starter template — no real data is loaded yet.\n\nGo to **Update** to enter your account balances, portfolio values, and recurring income/outflows, or use **Setup** to paste in a previously exported JSON backup.\n\nOnce your numbers are in, ask me anything — I can review your position, talk through your risk allocation, or help with planning.",
     },
   ],
 };
@@ -571,7 +571,7 @@ function WatchDial({ percent, label, sub, accent }) {
     <div className="dial">
       <svg viewBox="0 0 100 100" width="110" height="110">
         {Array.from({ length: 12 }).map((_, i) => (
-          <line key={i} x1="50" y1="6" x2="50" y2="12" stroke="#1B2430" strokeWidth="1.5" opacity="0.25" transform={`rotate(${i * 30} 50 50)`} />
+          <line key={i} x1="50" y1="6" x2="50" y2="12" stroke="#101C2E" strokeWidth="1.5" opacity="0.25" transform={`rotate(${i * 30} 50 50)`} />
         ))}
         <circle cx="50" cy="50" r={r} fill="none" stroke="#E4DCC8" strokeWidth="6" />
         <circle
@@ -580,7 +580,7 @@ function WatchDial({ percent, label, sub, accent }) {
           strokeLinecap="round"
           transform="rotate(-90 50 50)"
         />
-        <text x="50" y="54" textAnchor="middle" fontFamily="IBM Plex Mono, monospace" fontSize="18" fontWeight="600" fill="#1B2430">
+        <text x="50" y="54" textAnchor="middle" fontFamily="IBM Plex Mono, monospace" fontSize="18" fontWeight="600" fill="#101C2E">
           {Math.round(clamped)}%
         </text>
       </svg>
@@ -830,8 +830,16 @@ export default function App() {
       <div className="cfo">
         <style>{baseCSS}</style>
         <div className="loading-screen" style={{ flexDirection: 'column', gap: 16, padding: 32 }}>
-          <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#7A8699' }}>Personal CFO</div>
-          <div style={{ fontFamily: 'Fraunces, serif', fontSize: 22, color: '#1B2430', textAlign: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <svg width="24" height="24" viewBox="0 0 120 120" fill="none">
+              <rect x="25" y="30" width="16" height="60" rx="2" fill="#101C2E"/>
+              <rect x="79" y="30" width="16" height="60" rx="2" fill="#101C2E"/>
+              <rect x="25" y="52" width="70" height="16" rx="2" fill="#101C2E"/>
+              <rect x="79" y="30" width="16" height="16" rx="2" fill="#C9A24A"/>
+            </svg>
+            <span style={{ fontFamily: 'IBM Plex Sans, sans-serif', fontSize: 18, fontWeight: 700, color: '#101C2E', letterSpacing: '-0.3px' }}>Haya<span style={{ color: '#C9A24A' }}>CFO</span></span>
+          </div>
+          <div style={{ fontFamily: 'IBM Plex Serif, serif', fontSize: 22, color: '#101C2E', textAlign: 'center' }}>
             {authMode === 'signin' ? 'Sign in to your CFO' : 'Create your account'}
           </div>
           <input
@@ -879,20 +887,28 @@ export default function App() {
         <style>{baseCSS}</style>
         <div className="loading-screen" style={{ flexDirection: 'column', gap: 14, padding: 28, textAlign: 'left', alignItems: 'stretch' }}>
           <div style={{ maxWidth: 480, margin: '0 auto', width: '100%' }}>
-            <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#7A8699', marginBottom: 6, textAlign: 'center' }}>Personal CFO</div>
-            <div style={{ fontFamily: 'Fraunces, serif', fontSize: 22, color: '#1B2430', textAlign: 'center', marginBottom: 16 }}>Before you continue</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
+              <svg width="22" height="22" viewBox="0 0 120 120" fill="none">
+                <rect x="25" y="30" width="16" height="60" rx="2" fill="#101C2E"/>
+                <rect x="79" y="30" width="16" height="60" rx="2" fill="#101C2E"/>
+                <rect x="25" y="52" width="70" height="16" rx="2" fill="#101C2E"/>
+                <rect x="79" y="30" width="16" height="16" rx="2" fill="#C9A24A"/>
+              </svg>
+              <span style={{ fontFamily: 'IBM Plex Sans, sans-serif', fontSize: 18, fontWeight: 700, color: '#101C2E', letterSpacing: '-0.3px' }}>Haya<span style={{ color: '#C9A24A' }}>CFO</span></span>
+            </div>
+            <div style={{ fontFamily: 'IBM Plex Serif, serif', fontSize: 22, color: '#101C2E', textAlign: 'center', marginBottom: 16 }}>Before you continue</div>
 
-            <p style={{ fontSize: 13, color: '#1B2430', lineHeight: 1.55 }}>
+            <p style={{ fontSize: 13, color: '#101C2E', lineHeight: 1.55 }}>
               This is a personal project I built myself, not a commercial product — please bear that in mind as you use it.
             </p>
-            <p style={{ fontSize: 13, color: '#1B2430', lineHeight: 1.55 }}>
+            <p style={{ fontSize: 13, color: '#101C2E', lineHeight: 1.55 }}>
               Your data is private from other users, but as the project owner I technically have access to the underlying database, so please don't enter anything you wouldn't want me to potentially see. I won't go looking, but I want to be upfront that I could.
             </p>
-            <p style={{ fontSize: 13, color: '#1B2430', lineHeight: 1.55 }}>
+            <p style={{ fontSize: 13, color: '#101C2E', lineHeight: 1.55 }}>
               I can't guarantee uptime, data persistence, or security to a professional standard — this is a side project, not a polished product. Use at your own discretion.
             </p>
 
-            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 16, fontSize: 12.5, color: '#1B2430', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 16, fontSize: 12.5, color: '#101C2E', cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={disclaimerChecked}
@@ -1319,7 +1335,13 @@ export default function App() {
       <header className="masthead">
         <div className="masthead-eyebrow" onClick={() => { setShowStreakPopover(false); setShowScorePopover(false); }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>Personal CFO</span>
+            <svg width="20" height="20" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+              <rect x="25" y="30" width="16" height="60" rx="2" fill="#F7F3EA"/>
+              <rect x="79" y="30" width="16" height="60" rx="2" fill="#F7F3EA"/>
+              <rect x="25" y="52" width="70" height="16" rx="2" fill="#F7F3EA"/>
+              <rect x="79" y="30" width="16" height="16" rx="2" fill="#C9A24A"/>
+            </svg>
+            <span>Haya<span style={{ color: '#C9A24A' }}>CFO</span></span>
             {data.loginStreak?.count >= 2 && (
               <span style={{ position: 'relative' }}>
                 <button
@@ -1928,7 +1950,7 @@ export default function App() {
 }
 
 const baseCSS = `
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 * { box-sizing: border-box; }
 
@@ -1942,7 +1964,7 @@ const baseCSS = `
 .cfo {
   font-family: 'IBM Plex Sans', sans-serif;
   background: #F7F3EA;
-  color: #1B2430;
+  color: #101C2E;
   min-height: 100%;
   max-width: 720px;
   margin: 0 auto;
@@ -2098,7 +2120,7 @@ const baseCSS = `
   margin-bottom: 4px;
 }
 .masthead-hero {
-  font-family: 'Fraunces', serif;
+  font-family: 'IBM Plex Serif', serif;
   font-size: 44px;
   font-weight: 600;
   line-height: 1.1;
@@ -2146,7 +2168,7 @@ const baseCSS = `
   margin-bottom: 3px;
 }
 .masthead-cell-value {
-  font-family: 'Fraunces', serif;
+  font-family: 'IBM Plex Serif', serif;
   font-size: 18px;
   font-weight: 600;
 }
@@ -2199,7 +2221,7 @@ const baseCSS = `
   padding: 14px;
 }
 .card-title {
-  font-family: 'Fraunces', serif;
+  font-family: 'IBM Plex Serif', serif;
   font-size: 15px;
   font-weight: 600;
   margin-bottom: 10px;
@@ -2307,7 +2329,7 @@ const baseCSS = `
   border: 1px solid rgba(27,36,48,0.18);
   border-radius: 4px;
   background: #FBF9F4;
-  color: #1B2430;
+  color: #101C2E;
   width: 100%;
 }
 .input.mono { font-family: 'IBM Plex Mono', monospace; }
@@ -2345,7 +2367,7 @@ textarea.input { resize: vertical; }
   display: inline-flex; align-items: center; gap: 6px;
   background: none; border: 1px solid rgba(27,36,48,0.2);
   border-radius: 4px; padding: 7px 12px; font-size: 12.5px;
-  color: #1B2430; cursor: pointer; margin-top: 4px;
+  color: #101C2E; cursor: pointer; margin-top: 4px;
 }
 
 .row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
@@ -2389,7 +2411,7 @@ textarea.input { resize: vertical; }
 .chat-assistant { background: #FFFFFF; border: 1px solid rgba(27,36,48,0.08); align-self: flex-start; }
 .chat-user { background: #101C2E; color: #F7F3EA; align-self: flex-end; }
 .chat-loading { color: #7A8699; font-style: italic; }
-.md-h { font-family: 'Fraunces', serif; font-size: 14.5px; font-weight: 600; margin: 8px 0 4px; }
+.md-h { font-family: 'IBM Plex Serif', serif; font-size: 14.5px; font-weight: 600; margin: 8px 0 4px; }
 .md-h:first-child { margin-top: 0; }
 .md-p { margin: 0 0 6px; }
 .md-list { margin: 0 0 6px; padding-left: 18px; }
@@ -2403,7 +2425,7 @@ textarea.input { resize: vertical; }
   border-radius: 14px;
   padding: 6px 12px;
   cursor: pointer;
-  color: #1B2430;
+  color: #101C2E;
 }
 
 .chat-input-row { display: flex; gap: 8px; align-items: flex-end; }
@@ -2417,7 +2439,7 @@ textarea.input { resize: vertical; }
 }
 .send-btn:disabled { opacity: 0.4; cursor: default; }
 .attach-btn {
-  background: none; color: #1B2430;
+  background: none; color: #101C2E;
   border: 1px solid rgba(27,36,48,0.18); border-radius: 4px;
   width: 44px; height: 44px;
   display: flex; align-items: center; justify-content: center;
