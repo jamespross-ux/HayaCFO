@@ -52,7 +52,6 @@ const seed = {
     { id: 'r10', name: 'Subscriptions', amount: 0, currency: 'AED', frequency: 'monthly', direction: 'out', account: 'Everyday account', category: 'Subscriptions' },
   ],
 
-  knownGaps: [],
 
   snapshots: [
     {
@@ -265,7 +264,7 @@ function getCFOScoreInsight(cashNow, totalIn, totalOut, goals, liquidPortNow, sc
 
 
 function buildSystemPrompt(data) {
-  const { baseCurrency, displayCurrency = 'GBP', displaySecondaryCurrency = 'AED', accounts, portfolio, goals, recurringItems, knownGaps, snapshots, lifeLog, fxRates } = data;
+  const { baseCurrency, displayCurrency = 'GBP', displaySecondaryCurrency = 'AED', accounts, portfolio, goals, recurringItems, snapshots, lifeLog, fxRates } = data;
   const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
   const latest = sorted[sorted.length - 1];
 
@@ -346,11 +345,6 @@ function buildSystemPrompt(data) {
   );
   lines.push(`Net recurring position: ${fmt(totalIn - totalOut, baseCurrency)}/month (income ${fmt(totalIn, baseCurrency)}, outflows ${fmt(totalOut, baseCurrency)})`);
   lines.push(`IMPORTANT: the figures above (income, outflows, net) are the current, authoritative totals — always derive any net/balance figures directly from this income and outflow list, never by adjusting a net figure you or the user stated earlier in the conversation. If a line item changes, recompute from the full list above rather than doing delta arithmetic on a previous answer.`);
-  if (knownGaps?.length) {
-    lines.push('');
-    lines.push('Known gaps / things not yet tracked:');
-    knownGaps.forEach((g) => lines.push(`- ${g}`));
-  }
   lines.push('');
   lines.push('=== GOALS ===');
   goals.forEach((g) =>
@@ -636,7 +630,7 @@ const QUICK_PROMPTS = [
 ];
 
 const INTERVIEW_PROMPT =
-  "Based on everything you currently know about my accounts, portfolio, recurring cash flows, goals, and the known gaps — interview me with around 10 specific questions that would help you understand my situation better and give sharper recommendations going forward. Ground the questions in my actual numbers and items where relevant (e.g. specific holdings, my goals, any known gaps) rather than generic finance questions. List them all now, numbered, and I'll answer through as many as I can.";
+  "Based on everything you currently know about my accounts, portfolio, recurring cash flows, and goals — interview me with around 10 specific questions that would help you understand my situation better and give sharper recommendations going forward. Ground the questions in my actual numbers and items where relevant (e.g. specific holdings, my goals) rather than generic finance questions. List them all now, numbered, and I'll answer through as many as I can.";
 
 export default function App() {
   const [session, setSession] = useState(undefined);
@@ -943,7 +937,7 @@ export default function App() {
     );
   }
 
-  const { baseCurrency, displayCurrency = 'GBP', displaySecondaryCurrency = 'AED', showSecondaryCurrency = true, accounts, portfolio, goals, recurringItems, knownGaps, snapshots, lifeLog, fxRates, chat } = data;
+  const { baseCurrency, displayCurrency = 'GBP', displaySecondaryCurrency = 'AED', showSecondaryCurrency = true, accounts, portfolio, goals, recurringItems, snapshots, lifeLog, fxRates, chat } = data;
 
   const fmtD = (v) => fmtGBP(v, fxRates, displayCurrency);
   const fmtDS = (v) => fmtGBPAED(v, fxRates, displayCurrency, baseCurrency);
@@ -1010,9 +1004,6 @@ export default function App() {
 
   const removeLifeLogEntry = (id) => persist({ ...data, lifeLog: lifeLog.filter((l) => l.id !== id) });
 
-  const updateKnownGap = (index, value) => persist({ ...data, knownGaps: knownGaps.map((g, i) => (i === index ? value : g)) });
-  const removeKnownGap = (index) => persist({ ...data, knownGaps: knownGaps.filter((_, i) => i !== index) });
-  const addKnownGap = () => persist({ ...data, knownGaps: [...knownGaps, ''] });
 
 
   const exportData = () => {
@@ -1582,15 +1573,6 @@ export default function App() {
               </div>
             </div>
 
-            {knownGaps?.length > 0 && (
-              <div className="card gap-card">
-                <div className="card-title">Known gaps</div>
-                {knownGaps.map((g, i) => (
-                  <p className="muted-text" key={i}>{g}</p>
-                ))}
-              </div>
-            )}
-
             {goals.length > 0 && (
               <div className="card">
                 <div className="card-title">Goals</div>
@@ -1913,18 +1895,6 @@ export default function App() {
                 );
               })()}
               {lifeLog.length === 0 && <p className="muted-text">Nothing logged yet — add context here or via Update.</p>}
-            </div>
-
-            <div className="card">
-              <div className="card-title">Known gaps</div>
-              {knownGaps.map((g, i) => (
-                <div className="row" key={i}>
-                  <textarea className="input" rows={2} value={g} onChange={(e) => updateKnownGap(i, e.target.value)} />
-                  <button className="icon-btn" onClick={() => removeKnownGap(i)}><Trash2 size={14} /></button>
-                </div>
-              ))}
-              <button className="btn-secondary" onClick={addKnownGap}><Plus size={14} /> Add known gap</button>
-              {knownGaps.length === 0 && <p className="muted-text">No open gaps — nice and tidy.</p>}
             </div>
 
             <div className="card">
