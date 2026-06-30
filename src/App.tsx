@@ -639,6 +639,7 @@ export default function App() {
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
+  const [inviteCode, setInviteCode] = useState('');
 
   const [data, setData] = useState(null);
   const [tab, setTab] = useState('dashboard');
@@ -777,9 +778,45 @@ export default function App() {
   const handleAuth = async () => {
     setAuthLoading(true);
     setAuthError(null);
-    const { error } = authMode === 'signin'
-      ? await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword })
-      : await supabase.auth.signUp({ email: authEmail, password: authPassword });
+
+    if (authMode === 'signup') {
+      const code = inviteCode.trim();
+      if (!code) {
+        setAuthError('An invite code is required to create an account.');
+        setAuthLoading(false);
+        return;
+      }
+      const { data: codeRow, error: codeError } = await supabase
+        .from('invite_codes')
+        .select('id, used')
+        .eq('code', code)
+        .single();
+
+      if (codeError || !codeRow) {
+        setAuthError('Invalid invite code.');
+        setAuthLoading(false);
+        return;
+      }
+      if (codeRow.used) {
+        setAuthError('This invite code has already been used.');
+        setAuthLoading(false);
+        return;
+      }
+
+      const { error: signUpError } = await supabase.auth.signUp({ email: authEmail, password: authPassword });
+      if (signUpError) {
+        setAuthError(signUpError.message);
+        setAuthLoading(false);
+        return;
+      }
+
+      // Mark the invite code as used now that signup succeeded.
+      await supabase.from('invite_codes').update({ used: true }).eq('id', codeRow.id);
+      setAuthLoading(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
     setAuthLoading(false);
     if (error) setAuthError(error.message);
   };
@@ -854,11 +891,22 @@ export default function App() {
             onKeyDown={(e) => e.key === 'Enter' && handleAuth()}
             style={{ maxWidth: 320, width: '100%' }}
           />
+          {authMode === 'signup' && (
+            <input
+              className="input"
+              type="text"
+              placeholder="Invite code"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAuth()}
+              style={{ maxWidth: 320, width: '100%' }}
+            />
+          )}
           {authError && <p style={{ color: '#BD5B3A', fontSize: 12, margin: 0 }}>{authError}</p>}
-          <button className="btn-primary" onClick={handleAuth} disabled={authLoading || !authEmail.trim() || !authPassword.trim()}>
+          <button className="btn-primary" onClick={handleAuth} disabled={authLoading || !authEmail.trim() || !authPassword.trim() || (authMode === 'signup' && !inviteCode.trim())}>
             {authLoading ? '…' : authMode === 'signin' ? 'Sign in' : 'Create account'}
           </button>
-          <button className="btn-secondary" onClick={() => { setAuthMode(authMode === 'signin' ? 'signup' : 'signin'); setAuthError(null); }}>
+          <button className="btn-secondary" onClick={() => { setAuthMode(authMode === 'signin' ? 'signup' : 'signin'); setAuthError(null); setInviteCode(''); }}>
             {authMode === 'signin' ? 'First time? Create account' : 'Already have an account? Sign in'}
           </button>
         </div>
