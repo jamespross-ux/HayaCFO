@@ -832,10 +832,10 @@ export default function App() {
         <div className="loading-screen" style={{ flexDirection: 'column', gap: 16, padding: 32 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 4 }}>
             <svg width="24" height="24" viewBox="0 0 120 120" fill="none">
-              <rect x="25" y="30" width="16" height="60" rx="2" fill="#101C2E"/>
-              <rect x="79" y="30" width="16" height="60" rx="2" fill="#101C2E"/>
-              <rect x="25" y="52" width="70" height="16" rx="2" fill="#101C2E"/>
-              <rect x="79" y="30" width="16" height="16" rx="2" fill="#C9A24A"/>
+              <rect x="33" y="42" width="14" height="48" rx="1.5" fill="#101C2E"/>
+              <rect x="73" y="30" width="14" height="60" rx="1.5" fill="#101C2E"/>
+              <rect x="33" y="58" width="54" height="13" rx="1.5" fill="#101C2E"/>
+              <rect x="73" y="30" width="14" height="13" rx="1.5" fill="#C9A24A"/>
             </svg>
             <span style={{ fontFamily: 'IBM Plex Sans, sans-serif', fontSize: 18, fontWeight: 700, color: '#101C2E', letterSpacing: '-0.3px' }}>Haya<span style={{ color: '#C9A24A' }}>CFO</span></span>
           </div>
@@ -877,10 +877,10 @@ export default function App() {
       <div className="loading-screen" style={{ background: '#101C2E', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
         <style>{baseCSS}</style>
         <svg width="48" height="48" viewBox="0 0 120 120" fill="none">
-          <rect x="25" y="30" width="16" height="60" rx="2" fill="#F7F3EA"/>
-          <rect x="79" y="30" width="16" height="60" rx="2" fill="#F7F3EA"/>
-          <rect x="25" y="52" width="70" height="16" rx="2" fill="#F7F3EA"/>
-          <rect x="79" y="30" width="16" height="16" rx="2" fill="#C9A24A"/>
+          <rect x="33" y="42" width="14" height="48" rx="1.5" fill="#F7F3EA"/>
+          <rect x="73" y="30" width="14" height="60" rx="1.5" fill="#F7F3EA"/>
+          <rect x="33" y="58" width="54" height="13" rx="1.5" fill="#F7F3EA"/>
+          <rect x="73" y="30" width="14" height="13" rx="1.5" fill="#C9A24A"/>
         </svg>
         <div style={{ fontFamily: 'IBM Plex Sans, sans-serif', fontSize: 24, fontWeight: 700, letterSpacing: '-0.5px', color: '#F7F3EA' }}>
           Haya<span style={{ color: '#C9A24A' }}>CFO</span>
@@ -900,10 +900,10 @@ export default function App() {
           <div style={{ maxWidth: 480, margin: '0 auto', width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
               <svg width="22" height="22" viewBox="0 0 120 120" fill="none">
-                <rect x="25" y="30" width="16" height="60" rx="2" fill="#101C2E"/>
-                <rect x="79" y="30" width="16" height="60" rx="2" fill="#101C2E"/>
-                <rect x="25" y="52" width="70" height="16" rx="2" fill="#101C2E"/>
-                <rect x="79" y="30" width="16" height="16" rx="2" fill="#C9A24A"/>
+                <rect x="33" y="42" width="14" height="48" rx="1.5" fill="#101C2E"/>
+                <rect x="73" y="30" width="14" height="60" rx="1.5" fill="#101C2E"/>
+                <rect x="33" y="58" width="54" height="13" rx="1.5" fill="#101C2E"/>
+                <rect x="73" y="30" width="14" height="13" rx="1.5" fill="#C9A24A"/>
               </svg>
               <span style={{ fontFamily: 'IBM Plex Sans, sans-serif', fontSize: 18, fontWeight: 700, color: '#101C2E', letterSpacing: '-0.3px' }}>Haya<span style={{ color: '#C9A24A' }}>CFO</span></span>
             </div>
@@ -1347,10 +1347,10 @@ export default function App() {
         <div className="masthead-eyebrow" onClick={() => { setShowStreakPopover(false); setShowScorePopover(false); }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <svg width="28" height="28" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-              <rect x="25" y="30" width="16" height="60" rx="2" fill="#F7F3EA"/>
-              <rect x="79" y="30" width="16" height="60" rx="2" fill="#F7F3EA"/>
-              <rect x="25" y="52" width="70" height="16" rx="2" fill="#F7F3EA"/>
-              <rect x="79" y="30" width="16" height="16" rx="2" fill="#C9A24A"/>
+              <rect x="33" y="42" width="14" height="48" rx="1.5" fill="#F7F3EA"/>
+              <rect x="73" y="30" width="14" height="60" rx="1.5" fill="#F7F3EA"/>
+              <rect x="33" y="58" width="54" height="13" rx="1.5" fill="#F7F3EA"/>
+              <rect x="73" y="30" width="14" height="13" rx="1.5" fill="#C9A24A"/>
             </svg>
             <span>Haya<span style={{ color: '#C9A24A' }}>CFO</span></span>
             {data.loginStreak?.count >= 2 && (
@@ -1385,7 +1385,7 @@ export default function App() {
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {cfoScore !== null && (
-              <span style={{ position: 'relative' }}>
+              <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
                 <button
                   className="cfo-score-btn"
                   onClick={(e) => { e.stopPropagation(); setShowScorePopover((v) => !v); setShowStreakPopover(false); }}
