@@ -803,14 +803,25 @@ export default function App() {
         return;
       }
 
-      const { error: signUpError } = await supabase.auth.signUp({ email: authEmail, password: authPassword });
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email: authEmail, password: authPassword });
       if (signUpError) {
         setAuthError(signUpError.message);
         setAuthLoading(false);
         return;
       }
 
-      // Mark the invite code as used now that signup succeeded.
+      // Supabase can return success with no error even when the email already
+      // has an account (it won't create a duplicate, but also won't say so
+      // explicitly). In that case `identities` comes back as an empty array.
+      // Guard against burning the invite code in that scenario.
+      const isGenuinelyNewUser = signUpData?.user && signUpData.user.identities && signUpData.user.identities.length > 0;
+      if (!isGenuinelyNewUser) {
+        setAuthError('That email is already registered. Try signing in instead, or use a different email.');
+        setAuthLoading(false);
+        return;
+      }
+
+      // Mark the invite code as used now that signup is confirmed successful.
       await supabase.from('invite_codes').update({ used: true }).eq('id', codeRow.id);
       setAuthLoading(false);
       return;
