@@ -1046,41 +1046,17 @@ export default function App() {
     : null;
 
   // ── Insight Card ─────────────────────────────────────────────────────────
-  // UAT mode: daily rotation + daily suppression (change to 604_800_000 for weekly in prod)
-  const UAT_MODE = true;
-  const SUPPRESS_MS = UAT_MODE ? 86_400_000 : 604_800_000; // 24h UAT / 7 days prod
-  const ROTATE_MS  = UAT_MODE ? 86_400_000 : 604_800_000;
-
-  const monthlySurplusGBP = totalIn - totalOut; // already in base currency (GBP)
+  const SUPPRESS_MS = 86400000; // 24h (UAT) — change to 604800000 for weekly prod
+  const ROTATE_MS   = 86400000; // 24h (UAT) — change to 604800000 for weekly prod
+  const monthlySurplusGBP = totalIn - totalOut;
+  const isUATUser = session && session.user && session.user.email === 'jamespross@hotmail.com';
   const insightSuppressedUntil = data.insightSuppressedUntil || 0;
-  const isUATUser = session?.user?.email === 'jamespross@hotmail.com';
   const insightVisible = isUATUser && monthlySurplusGBP > 0 && Date.now() >= insightSuppressedUntil;
-
-  // Alternate between two insight types daily/weekly
   const weekIndex = Math.floor(Date.now() / ROTATE_MS);
-  const insightType: 'savings' | 'interest' = weekIndex % 2 === 0 ? 'savings' : 'interest';
-
-  // Calculate the number in base currency then format for display
-  const insightValueGBP = insightType === 'savings'
-    ? monthlySurplusGBP * 12
-    : monthlySurplusGBP * 0.33;
+  const insightType = weekIndex % 2 === 0 ? 'savings' : 'interest';
+  const insightValueGBP = insightType === 'savings' ? monthlySurplusGBP * 12 : monthlySurplusGBP * 0.33;
   const insightAmount = fmtD(insightValueGBP);
-
-  const dismissInsight = () => {
-    persist({ ...data, insightSuppressedUntil: Date.now() + SUPPRESS_MS });
-  };
-
-  // Mark as displayed on first render (so it suppresses for the period even without dismiss)
-  const insightDisplayedRef = React.useRef(false);
-  if (insightVisible && !insightDisplayedRef.current) {
-    insightDisplayedRef.current = true;
-    // Set suppression on first display — fire after render
-    setTimeout(() => {
-      if (!data.insightSuppressedUntil || Date.now() >= data.insightSuppressedUntil) {
-        persist({ ...data, insightSuppressedUntil: Date.now() + SUPPRESS_MS });
-      }
-    }, 500);
-  }
+  const dismissInsight = () => persist({ ...data, insightSuppressedUntil: Date.now() + SUPPRESS_MS });
   // ─────────────────────────────────────────────────────────────────────────
   const addAccount = () => persist({ ...data, accounts: [...accounts, { id: uid(), name: 'New account', type: 'asset', currency: baseCurrency }] });
   const removeAccount = (id) => persist({ ...data, accounts: accounts.filter((a) => a.id !== id) });
