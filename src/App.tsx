@@ -789,17 +789,12 @@ export default function App() {
       }
       const { data: codeRow, error: codeError } = await supabase
         .from('invite_codes')
-        .select('id, used')
+        .select('id')
         .eq('code', code)
         .single();
 
       if (codeError || !codeRow) {
         setAuthError('Invalid invite code.');
-        setAuthLoading(false);
-        return;
-      }
-      if (codeRow.used) {
-        setAuthError('This invite code has already been used.');
         setAuthLoading(false);
         return;
       }
@@ -811,10 +806,6 @@ export default function App() {
         return;
       }
 
-      // Supabase can return success with no error even when the email already
-      // has an account (it won't create a duplicate, but also won't say so
-      // explicitly). In that case `identities` comes back as an empty array.
-      // Guard against burning the invite code in that scenario.
       const isGenuinelyNewUser = signUpData?.user && signUpData.user.identities && signUpData.user.identities.length > 0;
       if (!isGenuinelyNewUser) {
         setAuthError('That email is already registered. Try signing in instead, or use a different email.');
@@ -822,8 +813,6 @@ export default function App() {
         return;
       }
 
-      // Mark the invite code as used now that signup is confirmed successful.
-      await supabase.from('invite_codes').update({ used: true }).eq('id', codeRow.id);
       setAuthLoading(false);
       return;
     }
@@ -1050,7 +1039,9 @@ export default function App() {
   const ROTATE_MS   = 302400000; // 3.5 days
   const monthlySurplusGBP = totalIn - totalOut;
   const insightSuppressedUntil = data.insightSuppressedUntil || 0;
-  const insightVisible = monthlySurplusGBP > 0 && Date.now() >= insightSuppressedUntil;
+  const hasIncome = recurringItems.some((r) => r.direction === 'in');
+  const hasOutflows = recurringItems.some((r) => r.direction === 'out');
+  const insightVisible = hasIncome && hasOutflows && monthlySurplusGBP > 0 && Date.now() >= insightSuppressedUntil;
   const weekIndex = Math.floor(Date.now() / ROTATE_MS);
   const insightType = weekIndex % 2 === 0 ? 'savings' : 'interest';
   const insightValueGBP = insightType === 'savings' ? monthlySurplusGBP * 12 : monthlySurplusGBP * 0.33;
