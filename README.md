@@ -1,25 +1,29 @@
-# Personal CFO
+# HayaCFO
 
-A personal finance dashboard with an AI CFO built in. Track your net worth, manage cash flow, monitor investments, and have real financial conversations with an AI that knows your full picture.
+A personal CFO for your entire financial life. Track your net worth, cash flow and investments — then talk through them with an AI CFO who knows your full picture.
 
 Built for people who care about their finances but don't want to live in a spreadsheet.
+
+🌐 [hayacfo.com](https://www.hayacfo.com)
 
 ---
 
 ## Features
 
 - **Live dashboard** — net worth, cash, liquid portfolio, and illiquid assets at a glance
-- **Multi-currency** — display in GBP, AED, USD, or any currency; toggle secondary figures on/off
+- **Multi-currency** — display in GBP, AED, USD, or any currency with live FX rates
 - **CFO Score** — weighted financial health score across surplus, liquidity, goals, and portfolio
 - **CFO Chat** — AI CFO with full context of your financial picture; asks smart questions, gives direct answers
+- **Insight of the Week** — a single, data-driven positive insight surfaced every 3.5 days
 - **Life log** — capture key financial moments; the CFO proactively offers to log things for you
-- **Goals tracker** — visual progress dials per goal
+- **Goals tracker** — visual progress per goal with time-to-achieve tracking
 - **Recurring cash flow** — income and outflow tracking with trend charts
 - **Portfolio risk allocation** — Low, Balanced, High breakdown with visual bar
 - **Illiquid asset tracking** — property equity, pension etc. kept separate from liquid net worth
-- **Auto FX rate refresh** — rates update daily on login, dashboard recalculates immediately
-- **Login streak** — tracks daily engagement with contextual messages
+- **Auto FX rate refresh** — rates update daily on login
+- **Login streak** — tracks daily engagement
 - **Snapshot history** — net worth over time chart from saved updates
+- **Invite-only signup** — access controlled via invite codes
 - **Export / import** — full JSON backup and restore
 - **Secure** — Supabase auth with RLS; each user can only access their own data
 
@@ -27,13 +31,13 @@ Built for people who care about their finances but don't want to live in a sprea
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | React + TypeScript + Vite |
-| Auth + Database | Supabase (email/password auth, PostgreSQL with RLS) |
-| Hosting | Vercel |
-| AI | Anthropic Claude API (claude-sonnet-4-6) via Vercel edge function |
-| FX Rates | ExchangeRate-API |
+| Layer           | Technology                                                        |
+| --------------- | ----------------------------------------------------------------- |
+| Frontend        | React + TypeScript + Vite                                         |
+| Auth + Database | Supabase (email/password auth, PostgreSQL with RLS)               |
+| Hosting         | Vercel                                                            |
+| AI              | Anthropic Claude API (claude-sonnet-4-6) via Vercel edge function |
+| FX Rates        | ExchangeRate-API                                                  |
 
 ---
 
@@ -42,8 +46,8 @@ Built for people who care about their finances but don't want to live in a sprea
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/jamespross-ux/PersonalCFO.git
-cd PersonalCFO
+git clone https://github.com/jamespross-ux/HayaCFO.git
+cd HayaCFO
 npm install
 ```
 
@@ -64,6 +68,17 @@ alter table cfo_data enable row level security;
 create policy "Users can only access their own data"
   on cfo_data for all
   using (auth.uid() = user_id);
+
+create table invite_codes (
+  id uuid primary key default gen_random_uuid(),
+  code text unique not null,
+  created_at timestamp with time zone default now()
+);
+
+alter table invite_codes enable row level security;
+
+create policy "Anyone can read invite codes"
+  on invite_codes for select using (true);
 ```
 
 ### 3. Environment variables
@@ -123,6 +138,7 @@ npm run dev
 - The Anthropic API key is never exposed to the client
 - Base currency is set per user (default AED); display currency is cosmetic
 - CFO Score is calculated client-side — no AI call needed for the score itself
+- Invite codes are required for signup — add rows to the `invite_codes` table to control access
 
 ---
 
@@ -134,11 +150,8 @@ MIT
 
 ## Get in Touch
 
-If you find this useful, have ideas, or want to connect — I'd love to hear from you.
+If you find this useful or want to connect:
 
 **James Ross**
 - 💼 [LinkedIn](https://www.linkedin.com/in/jamesr19/)
-- 📧 jamespross@hotmail.com
-- 💬 WhatsApp: +971 58 528 1208
-
-If this project helped you, a ⭐ on the repo is always appreciated.
+- 📧 jamespross@me.com
