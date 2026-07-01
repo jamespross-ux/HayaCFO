@@ -1851,8 +1851,13 @@ export default function App() {
 
         {tab === 'data' && (
           <div className="stack">
-            <div className="card">
-              <div className="card-title">Export / backup</div>
+            <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+              <div>
+                <div className="card-title">Getting started</div>
+                <p className="muted-text">New to HayaCFO? The guide walks you through setup in three quick steps.</p>
+              </div>
+              <a href="https://www.hayacfo.com/guide" target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>View guide →</a>
+            </div>
               <p className="muted-text">
                 Downloads your complete current data — accounts, portfolio, recurring items, goals, all snapshots,
                 life log and chat history — as a JSON file. Keep it somewhere safe as a backup, or paste its
