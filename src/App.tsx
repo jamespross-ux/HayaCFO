@@ -1560,13 +1560,13 @@ export default function App() {
 
                 {/* Message */}
                 {insightType === 'savings' ? (
-                  <div style={{ fontFamily: "'Spectral', 'IBM Plex Serif', serif", fontSize: 20, lineHeight: 1.55, color: '#EEF1F5', paddingRight: 20 }}>
+                  <div style={{ fontFamily: "'Spectral', 'IBM Plex Serif', serif", fontSize: 18, lineHeight: 1.45, color: '#EEF1F5', paddingRight: 20 }}>
                     At your current surplus rate you'll have an extra{' '}
                     <span style={{ fontWeight: 700, color: '#D9B45F', whiteSpace: 'nowrap' }}>{insightAmount}</span>{' '}
                     in <span style={{ whiteSpace: 'nowrap' }}>12 months</span>.
                   </div>
                 ) : (
-                  <div style={{ fontFamily: "'Spectral', 'IBM Plex Serif', serif", fontSize: 20, lineHeight: 1.55, color: '#EEF1F5', paddingRight: 20 }}>
+                  <div style={{ fontFamily: "'Spectral', 'IBM Plex Serif', serif", fontSize: 18, lineHeight: 1.45, color: '#EEF1F5', paddingRight: 20 }}>
                     Put your monthly surplus into a 6% savings plan and you'd earn{' '}
                     <span style={{ fontWeight: 700, color: '#D9B45F', whiteSpace: 'nowrap' }}>{insightAmount}</span>{' '}
                     in interest over <span style={{ whiteSpace: 'nowrap' }}>12 months</span>.
