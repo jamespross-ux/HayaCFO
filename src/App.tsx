@@ -1858,8 +1858,9 @@ export default function App() {
               </div>
               <a href="https://www.hayacfo.com/guide" target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>View guide →</a>
             </div>
+            <div className="card">
+              <div className="card-title">Export / backup</div>
               <p className="muted-text">
-                Downloads your complete current data — accounts, portfolio, recurring items, goals, all snapshots,
                 life log and chat history — as a JSON file. Keep it somewhere safe as a backup, or paste its
                 contents into a new chat for a deep-dive review with a different model.
               </p>
