@@ -26,6 +26,7 @@ const seed = {
   disclaimerAccepted: false,
   lastFxAutoRefresh: null,
   loginStreak: { count: 0, lastDate: null, longest: 0 },
+  insightSuppressedUntil: 0,
   fxRates: { GBP: 4.924, USD: 3.6725 },
 
   accounts: [
@@ -1044,7 +1045,43 @@ export default function App() {
     ? getCFOScoreInsight(cashNow, totalIn, totalOut, goals, liquidPortNow, cfoScore, displayCurrency, fxRates)
     : null;
 
-  const updateAccount = (id, field, value) => persist({ ...data, accounts: accounts.map((a) => (a.id === id ? { ...a, [field]: value } : a)) });
+  // ── Insight Card ─────────────────────────────────────────────────────────
+  // UAT mode: daily rotation + daily suppression (change to 604_800_000 for weekly in prod)
+  const UAT_MODE = true;
+  const SUPPRESS_MS = UAT_MODE ? 86_400_000 : 604_800_000; // 24h UAT / 7 days prod
+  const ROTATE_MS  = UAT_MODE ? 86_400_000 : 604_800_000;
+
+  const monthlySurplusGBP = totalIn - totalOut; // already in base currency (GBP)
+  const insightSuppressedUntil = data.insightSuppressedUntil || 0;
+  const isUATUser = session?.user?.email === 'jamespross@hotmail.com';
+  const insightVisible = isUATUser && monthlySurplusGBP > 0 && Date.now() >= insightSuppressedUntil;
+
+  // Alternate between two insight types daily/weekly
+  const weekIndex = Math.floor(Date.now() / ROTATE_MS);
+  const insightType: 'savings' | 'interest' = weekIndex % 2 === 0 ? 'savings' : 'interest';
+
+  // Calculate the number in base currency then format for display
+  const insightValueGBP = insightType === 'savings'
+    ? monthlySurplusGBP * 12
+    : monthlySurplusGBP * 0.33;
+  const insightAmount = fmtD(insightValueGBP);
+
+  const dismissInsight = () => {
+    persist({ ...data, insightSuppressedUntil: Date.now() + SUPPRESS_MS });
+  };
+
+  // Mark as displayed on first render (so it suppresses for the period even without dismiss)
+  const insightDisplayedRef = React.useRef(false);
+  if (insightVisible && !insightDisplayedRef.current) {
+    insightDisplayedRef.current = true;
+    // Set suppression on first display — fire after render
+    setTimeout(() => {
+      if (!data.insightSuppressedUntil || Date.now() >= data.insightSuppressedUntil) {
+        persist({ ...data, insightSuppressedUntil: Date.now() + SUPPRESS_MS });
+      }
+    }, 500);
+  }
+  // ─────────────────────────────────────────────────────────────────────────
   const addAccount = () => persist({ ...data, accounts: [...accounts, { id: uid(), name: 'New account', type: 'asset', currency: baseCurrency }] });
   const removeAccount = (id) => persist({ ...data, accounts: accounts.filter((a) => a.id !== id) });
 
@@ -1533,6 +1570,41 @@ export default function App() {
       <main className="content">
         {tab === 'dashboard' && (
           <div className="stack">
+
+            {/* ── Insight of the Week card ── */}
+            {insightVisible && (
+              <div className="insight-card">
+                <button className="insight-dismiss" onClick={dismissInsight} aria-label="Dismiss insight">✕</button>
+
+                {/* Eyebrow */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: 999, background: '#C9A24A', boxShadow: '0 0 0 3px rgba(201,162,74,0.18)', flexShrink: 0 }} />
+                  <span style={{ fontFamily: "'JetBrains Mono', 'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: '2.5px', color: '#C9A24A' }}>INSIGHT OF THE WEEK</span>
+                </div>
+
+                {/* Message */}
+                {insightType === 'savings' ? (
+                  <div style={{ fontFamily: "'Spectral', 'IBM Plex Serif', serif", fontSize: 20, lineHeight: 1.55, color: '#EEF1F5', paddingRight: 20 }}>
+                    At your current surplus rate you'll have an extra{' '}
+                    <span style={{ fontWeight: 700, color: '#D9B45F', whiteSpace: 'nowrap' }}>{insightAmount}</span>{' '}
+                    in <span style={{ whiteSpace: 'nowrap' }}>12 months</span>.
+                  </div>
+                ) : (
+                  <div style={{ fontFamily: "'Spectral', 'IBM Plex Serif', serif", fontSize: 20, lineHeight: 1.55, color: '#EEF1F5', paddingRight: 20 }}>
+                    Put your monthly surplus into a 6% savings plan and you'd earn{' '}
+                    <span style={{ fontWeight: 700, color: '#D9B45F', whiteSpace: 'nowrap' }}>{insightAmount}</span>{' '}
+                    in interest over <span style={{ whiteSpace: 'nowrap' }}>12 months</span>.
+                  </div>
+                )}
+
+                {/* Footer */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                  <span style={{ width: 16, height: 16, borderRadius: 5, background: '#16283F', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#C9A24A', flexShrink: 0 }}>H</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', 'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: '1.5px', color: '#5D708A' }}>FROM YOUR CFO · ONCE A WEEK</span>
+                </div>
+              </div>
+            )}
+
             {sortedSnaps.length > 1 && (
               <div className="card">
                 <div className="card-title">Liquid net worth over time</div>
@@ -1990,9 +2062,46 @@ export default function App() {
 }
 
 const baseCSS = `
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Spectral:wght@400;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 * { box-sizing: border-box; }
+
+@keyframes insightIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.insight-card {
+  animation: insightIn 0.5s cubic-bezier(0.2,0.7,0.3,1) both;
+  position: relative;
+  background: linear-gradient(155deg, #12233a 0%, #101C2E 100%);
+  border: 1px solid rgba(201,162,74,0.35);
+  border-radius: 20px;
+  padding: 22px 22px 20px;
+  box-shadow: 0 16px 34px -18px rgba(11,20,32,0.7);
+  margin-bottom: 18px;
+}
+.insight-dismiss {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  border: none;
+  color: #8397ae;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  min-width: 44px;
+  min-height: 44px;
+  margin: -7px -7px 0 0;
+}
+.insight-dismiss:hover { background: rgba(255,255,255,0.12); color: #F7F3EA; }
 
 .loading-screen {
   font-family: 'IBM Plex Mono', monospace;
