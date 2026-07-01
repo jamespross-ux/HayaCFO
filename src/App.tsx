@@ -1046,12 +1046,11 @@ export default function App() {
     : null;
 
   // ── Insight Card ─────────────────────────────────────────────────────────
-  const SUPPRESS_MS = 86400000; // 24h (UAT) — change to 604800000 for weekly prod
-  const ROTATE_MS   = 86400000; // 24h (UAT) — change to 604800000 for weekly prod
+  const SUPPRESS_MS = 302400000; // 3.5 days
+  const ROTATE_MS   = 302400000; // 3.5 days
   const monthlySurplusGBP = totalIn - totalOut;
-  const isUATUser = session && session.user && session.user.email === 'jamespross@hotmail.com';
   const insightSuppressedUntil = data.insightSuppressedUntil || 0;
-  const insightVisible = isUATUser && monthlySurplusGBP > 0 && Date.now() >= insightSuppressedUntil;
+  const insightVisible = monthlySurplusGBP > 0 && Date.now() >= insightSuppressedUntil;
   const weekIndex = Math.floor(Date.now() / ROTATE_MS);
   const insightType = weekIndex % 2 === 0 ? 'savings' : 'interest';
   const insightValueGBP = insightType === 'savings' ? monthlySurplusGBP * 12 : monthlySurplusGBP * 0.33;
