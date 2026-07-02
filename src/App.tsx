@@ -1041,59 +1041,11 @@ export default function App() {
   const insightSuppressedUntil = data.insightSuppressedUntil || 0;
   const hasIncome = recurringItems.some((r) => r.direction === 'in');
   const hasOutflows = recurringItems.some((r) => r.direction === 'out');
+  const insightVisible = hasIncome && hasOutflows && monthlySurplusGBP > 0 && Date.now() >= insightSuppressedUntil;
   const weekIndex = Math.floor(Date.now() / ROTATE_MS);
-  const userStreak = data.loginStreak?.count || 0;
-
-  // 3-type rotation: 0=savings, 1=interest, 2=streak
-  // Streak variant only shows if user has a streak >= 3
-  const rawType = weekIndex % 3;
-  let insightType = 'savings';
-  if (rawType === 1) insightType = 'interest';
-  if (rawType === 2 && userStreak >= 3) insightType = 'streak';
-  if (rawType === 2 && userStreak < 3) insightType = weekIndex % 2 === 0 ? 'savings' : 'interest';
-
+  const insightType = weekIndex % 2 === 0 ? 'savings' : 'interest';
   const insightValueGBP = insightType === 'savings' ? monthlySurplusGBP * 12 : monthlySurplusGBP * 0.33;
   const insightAmount = fmtD(insightValueGBP);
-
-  // Streak percentile — fetched once when streak variant is active
-  const [streakPercentile, setStreakPercentile] = React.useState(null);
-  const streakFetchedRef = React.useRef(false);
-
-  React.useEffect(() => {
-    if (insightType !== 'streak' || streakFetchedRef.current || userStreak < 3) return;
-    streakFetchedRef.current = true;
-    const fetchPercentile = async () => {
-      try {
-        const { data: stats } = await supabase
-          .from('streak_stats')
-          .select('total_users, streak_distribution')
-          .eq('id', 1)
-          .single();
-
-        if (!stats || !stats.streak_distribution || stats.total_users < 2) return;
-
-        // Count users with streak <= current user's streak
-        const dist = stats.streak_distribution;
-        const belowOrEqual = Object.entries(dist)
-          .filter(([k]) => parseInt(k) <= userStreak)
-          .reduce((sum, [, v]) => sum + Number(v), 0);
-
-        const percentile = Math.round(((stats.total_users - belowOrEqual) / stats.total_users) * 100);
-        setStreakPercentile(Math.max(1, percentile));
-      } catch (e) {
-        // Silently fail
-      }
-    };
-    fetchPercentile();
-  }, [insightType, userStreak]);
-
-  const insightVisible = (
-    Date.now() >= insightSuppressedUntil &&
-    (insightType === 'streak'
-      ? userStreak >= 3 && streakPercentile !== null
-      : hasIncome && hasOutflows && monthlySurplusGBP > 0)
-  );
-
   const dismissInsight = () => persist({ ...data, insightSuppressedUntil: Date.now() + SUPPRESS_MS });
   // ─────────────────────────────────────────────────────────────────────────
   const addAccount = () => persist({ ...data, accounts: [...accounts, { id: uid(), name: 'New account', type: 'asset', currency: baseCurrency }] });
@@ -1603,17 +1555,11 @@ export default function App() {
                     <span style={{ fontWeight: 700, color: '#D9B45F', whiteSpace: 'nowrap' }}>{insightAmount}</span>{' '}
                     in <span style={{ whiteSpace: 'nowrap' }}>12 months</span>.
                   </div>
-                ) : insightType === 'interest' ? (
+                ) : (
                   <div style={{ fontFamily: "'Spectral', 'IBM Plex Serif', serif", fontSize: 18, lineHeight: 1.45, color: '#EEF1F5', paddingRight: 20 }}>
                     Put your monthly surplus into a 6% savings plan and you'd earn{' '}
                     <span style={{ fontWeight: 700, color: '#D9B45F', whiteSpace: 'nowrap' }}>{insightAmount}</span>{' '}
                     in interest over <span style={{ whiteSpace: 'nowrap' }}>12 months</span>.
-                  </div>
-                ) : (
-                  <div style={{ fontFamily: "'Spectral', 'IBM Plex Serif', serif", fontSize: 18, lineHeight: 1.45, color: '#EEF1F5', paddingRight: 20 }}>
-                    With a <span style={{ fontWeight: 700, color: '#D9B45F', whiteSpace: 'nowrap' }}>{userStreak}-day streak</span>, you're in the top{' '}
-                    <span style={{ fontWeight: 700, color: '#D9B45F', whiteSpace: 'nowrap' }}>{streakPercentile}%</span>{' '}
-                    most consistent users on HayaCFO.
                   </div>
                 )}
 
