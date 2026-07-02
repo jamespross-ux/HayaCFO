@@ -1047,7 +1047,10 @@ export default function App() {
   // 3-type rotation: 0=savings, 1=interest, 2=streak
   // Streak variant only shows if user has a streak >= 3
   const rawType = weekIndex % 3;
-  const insightType = rawType === 2 && userStreak < 3 ? weekIndex % 2 === 0 ? 'savings' : 'interest' : rawType === 2 ? 'streak' : rawType === 0 ? 'savings' : 'interest';
+  let insightType = 'savings';
+  if (rawType === 1) insightType = 'interest';
+  if (rawType === 2 && userStreak >= 3) insightType = 'streak';
+  if (rawType === 2 && userStreak < 3) insightType = weekIndex % 2 === 0 ? 'savings' : 'interest';
 
   const insightValueGBP = insightType === 'savings' ? monthlySurplusGBP * 12 : monthlySurplusGBP * 0.33;
   const insightAmount = fmtD(insightValueGBP);
@@ -1073,7 +1076,7 @@ export default function App() {
         const dist = stats.streak_distribution;
         const belowOrEqual = Object.entries(dist)
           .filter(([k]) => parseInt(k) <= userStreak)
-          .reduce((sum, [, v]) => sum + (v as number), 0);
+          .reduce((sum, [, v]) => sum + Number(v), 0);
 
         const percentile = Math.round(((stats.total_users - belowOrEqual) / stats.total_users) * 100);
         setStreakPercentile(Math.max(1, percentile));
