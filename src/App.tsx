@@ -661,8 +661,10 @@ export default function App() {
   const [attachment, setAttachment] = useState(null);
   const [attachError, setAttachError] = useState(null);
   const [disclaimerChecked, setDisclaimerChecked] = useState(false);
+  const [streakPercentile, setStreakPercentile] = useState(null);
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const streakFetchedRef = useRef(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -775,6 +777,32 @@ export default function App() {
     persist({ ...data, loginStreak: { count: newCount, lastDate: today, longest: newLongest } });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.disclaimerAccepted]);
+
+  // Streak percentile — fetch once from streak_stats when user has 3+ day streak
+  useEffect(() => {
+    if (!data || !data.disclaimerAccepted) return;
+    const userStreak = data.loginStreak?.count || 0;
+    if (userStreak < 3 || streakFetchedRef.current) return;
+    streakFetchedRef.current = true;
+    (async () => {
+      try {
+        const { data: stats } = await supabase
+          .from('streak_stats')
+          .select('total_users, streak_distribution')
+          .eq('id', 1)
+          .single();
+        if (!stats || !stats.streak_distribution || stats.total_users < 2) return;
+        const dist = stats.streak_distribution;
+        const belowOrEqual = Object.entries(dist)
+          .filter(([k]) => parseInt(k) <= userStreak)
+          .reduce((sum, [, v]) => sum + Number(v), 0);
+        const percentile = Math.round(((stats.total_users - belowOrEqual) / stats.total_users) * 100);
+        setStreakPercentile(Math.max(1, percentile));
+      } catch (e) {
+        // Silently fail
+      }
+    })();
+  }, [data?.disclaimerAccepted, data?.loginStreak?.count]);
 
   const handleAuth = async () => {
     setAuthLoading(true);
@@ -1041,11 +1069,17 @@ export default function App() {
   const insightSuppressedUntil = data.insightSuppressedUntil || 0;
   const hasIncome = recurringItems.some((r) => r.direction === 'in');
   const hasOutflows = recurringItems.some((r) => r.direction === 'out');
-  const insightVisible = hasIncome && hasOutflows && monthlySurplusGBP > 0 && Date.now() >= insightSuppressedUntil;
+  const userStreak = data.loginStreak?.count || 0;
   const weekIndex = Math.floor(Date.now() / ROTATE_MS);
-  const insightType = weekIndex % 2 === 0 ? 'savings' : 'interest';
+  const rawType = weekIndex % 3;
+  let insightType = 'savings';
+  if (rawType === 1) insightType = 'interest';
+  if (rawType === 2 && userStreak >= 3 && streakPercentile !== null) insightType = 'streak';
   const insightValueGBP = insightType === 'savings' ? monthlySurplusGBP * 12 : monthlySurplusGBP * 0.33;
   const insightAmount = fmtD(insightValueGBP);
+  const insightVisible = insightType === 'streak'
+    ? Date.now() >= insightSuppressedUntil
+    : hasIncome && hasOutflows && monthlySurplusGBP > 0 && Date.now() >= insightSuppressedUntil;
   const dismissInsight = () => persist({ ...data, insightSuppressedUntil: Date.now() + SUPPRESS_MS });
   // ─────────────────────────────────────────────────────────────────────────
   const addAccount = () => persist({ ...data, accounts: [...accounts, { id: uid(), name: 'New account', type: 'asset', currency: baseCurrency }] });
@@ -1555,18 +1589,24 @@ export default function App() {
                     <span style={{ fontWeight: 700, color: '#D9B45F', whiteSpace: 'nowrap' }}>{insightAmount}</span>{' '}
                     in <span style={{ whiteSpace: 'nowrap' }}>12 months</span>.
                   </div>
-                ) : (
+                ) : insightType === 'interest' ? (
                   <div style={{ fontFamily: "'Spectral', 'IBM Plex Serif', serif", fontSize: 18, lineHeight: 1.45, color: '#EEF1F5', paddingRight: 20 }}>
                     Put your monthly surplus into a 6% savings plan and you'd earn{' '}
                     <span style={{ fontWeight: 700, color: '#D9B45F', whiteSpace: 'nowrap' }}>{insightAmount}</span>{' '}
                     in interest over <span style={{ whiteSpace: 'nowrap' }}>12 months</span>.
+                  </div>
+                ) : (
+                  <div style={{ fontFamily: "'Spectral', 'IBM Plex Serif', serif", fontSize: 18, lineHeight: 1.45, color: '#EEF1F5', paddingRight: 20 }}>
+                    With a <span style={{ fontWeight: 700, color: '#D9B45F', whiteSpace: 'nowrap' }}>{userStreak}-day streak</span>, you're in the top{' '}
+                    <span style={{ fontWeight: 700, color: '#D9B45F', whiteSpace: 'nowrap' }}>{streakPercentile}%</span>{' '}
+                    most consistent users on HayaCFO.
                   </div>
                 )}
 
                 {/* Footer */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
                   <span style={{ width: 16, height: 16, borderRadius: 5, background: '#16283F', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#C9A24A', flexShrink: 0 }}>H</span>
-                  <span style={{ fontFamily: "'JetBrains Mono', 'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: '1.5px', color: '#5D708A' }}>FROM YOUR CFO · ONCE A WEEK</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', 'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: '1.5px', color: '#5D708A' }}>FROM HAYACFO</span>
                 </div>
               </div>
             )}
