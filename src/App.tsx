@@ -19,8 +19,8 @@ const MAX_HISTORY_MESSAGES = 24;
 
 const seed = {
   baseCurrency: 'AED',
-  secondaryCurrency: 'GBP',
-  displayCurrency: 'GBP',
+  secondaryCurrency: 'AED',
+  displayCurrency: 'USD',
   displaySecondaryCurrency: 'AED',
   showSecondaryCurrency: true,
   disclaimerAccepted: false,
@@ -30,36 +30,26 @@ const seed = {
   fxRates: { GBP: 4.924, USD: 3.6725 },
 
   accounts: [
-    { id: 'acc1', name: 'UK current account', type: 'asset', currency: 'GBP' },
-    { id: 'acc2', name: 'Everyday account', type: 'asset', currency: 'AED' },
-    { id: 'acc3', name: 'Savings account', type: 'asset', currency: 'AED' },
+    { id: 'acc1', name: 'Your current account', type: 'asset', currency: 'AED' },
+    { id: 'acc2', name: 'Your savings account', type: 'asset', currency: 'AED' },
   ],
 
   portfolio: [
-    { id: 'p1', product: 'Investment account 1', country: 'UK', currency: 'GBP', risk: 'Balanced' },
-    { id: 'p2', product: 'Investment account 2', country: 'UAE', currency: 'USD', risk: 'Balanced' },
-    { id: 'p3', product: 'Savings / bonds', country: 'UK', currency: 'GBP', risk: 'Low' },
-    { id: 'p4', product: 'Local savings account', country: 'UAE', currency: 'AED', risk: 'Low' },
-    { id: 'mqe58qbczh2do', product: 'Property', country: 'UK', currency: 'GBP', risk: 'Low', illiquid: true },
+    { id: 'p1', product: 'Your investment portfolio', country: '', currency: 'AED', risk: 'Balanced' },
+    { id: 'p2', product: 'Pension / 401k / EOS', country: '', currency: 'AED', risk: 'Low', illiquid: true },
+    { id: 'p3', product: 'Your property equity', country: '', currency: 'AED', risk: 'Low', illiquid: true },
   ],
 
-  goals: [
-    { id: 'g1', name: 'Emergency fund', target: 0, current: 0, targetDate: '' },
-  ],
+  goals: [],
 
-  recurringItems: [
-    { id: 'r1', name: 'Salary', amount: 0, currency: 'AED', frequency: 'monthly', direction: 'in', account: 'Everyday account', category: 'Income' },
-    { id: 'r6', name: 'Rent', amount: 0, currency: 'AED', frequency: 'monthly', direction: 'out', account: 'Everyday account', category: 'Housing' },
-    { id: 'r10', name: 'Subscriptions', amount: 0, currency: 'AED', frequency: 'monthly', direction: 'out', account: 'Everyday account', category: 'Subscriptions' },
-  ],
-
+  recurringItems: [],
 
   snapshots: [
     {
       id: 's1',
       date: new Date().toISOString().slice(0, 10),
-      balances: { acc1: 0, acc2: 0, acc3: 0 },
-      portfolioValues: { p1: 0, p2: 0, p3: 0, p4: 0, mqe58qbczh2do: 0 },
+      balances: { acc1: 0, acc2: 0 },
+      portfolioValues: { p1: 0, p2: 0, p3: 0 },
       fxRates: { GBP: 4.924, USD: 3.6725 },
       note: 'Starter template — enter your real balances via Update, or paste an exported JSON backup via Setup.',
       netRecurring: { in: 0, out: 0 },
@@ -265,7 +255,7 @@ function getCFOScoreInsight(cashNow, totalIn, totalOut, goals, liquidPortNow, sc
 
 
 function buildSystemPrompt(data) {
-  const { baseCurrency, displayCurrency = 'GBP', displaySecondaryCurrency = 'AED', accounts, portfolio, goals, recurringItems, snapshots, lifeLog, fxRates } = data;
+  const { baseCurrency, displayCurrency = 'USD', displaySecondaryCurrency = 'AED', accounts, portfolio, goals, recurringItems, snapshots, lifeLog, fxRates } = data;
   const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
   const latest = sorted[sorted.length - 1];
 
@@ -1014,7 +1004,7 @@ export default function App() {
     );
   }
 
-  const { baseCurrency, displayCurrency = 'GBP', displaySecondaryCurrency = 'AED', showSecondaryCurrency = true, accounts, portfolio, goals, recurringItems, snapshots, lifeLog, fxRates, chat } = data;
+  const { baseCurrency, displayCurrency = 'USD', displaySecondaryCurrency = 'AED', showSecondaryCurrency = true, accounts, portfolio, goals, recurringItems, snapshots, lifeLog, fxRates, chat } = data;
 
   const fmtD = (v) => fmtGBP(v, fxRates, displayCurrency);
   const fmtDS = (v) => fmtGBPAED(v, fxRates, displayCurrency, baseCurrency);
