@@ -1923,13 +1923,13 @@ export default function App() {
             <div className="card">
               <div className="card-title">Accounts</div>
               {accounts.map((a) => (
-                <div className="row" key={a.id}>
-                  <input className="input" value={a.name} onChange={(e) => updateAccount(a.id, 'name', e.target.value)} style={{ flex: '1 1 0', minWidth: 0 }} />
-                  <select className="input select" value={a.type} onChange={(e) => updateAccount(a.id, 'type', e.target.value)} style={{ flex: '0 0 90px' }}>
+                <div className="row" key={a.id} style={{ flexWrap: 'wrap', gap: 6 }}>
+                  <input className="input" value={a.name} onChange={(e) => updateAccount(a.id, 'name', e.target.value)} style={{ flex: '1 1 120px', minWidth: 0 }} />
+                  <select className="input select" value={a.type} onChange={(e) => updateAccount(a.id, 'type', e.target.value)} style={{ flex: '0 0 80px' }}>
                     <option value="asset">asset</option>
                     <option value="liability">liability</option>
                   </select>
-                  <select className="input select mono" value={a.currency} onChange={(e) => updateAccount(a.id, 'currency', e.target.value)} style={{ flex: '0 0 75px' }}>
+                  <select className="input select mono" value={a.currency} onChange={(e) => updateAccount(a.id, 'currency', e.target.value)} style={{ flex: '0 0 68px' }}>
                     {['GBP','AED','USD','EUR','INR','SGD','CAD','AUD','SAR','QAR','CHF','JPY','HKD','NZD','ZAR'].map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
