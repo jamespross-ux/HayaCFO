@@ -621,7 +621,7 @@ const QUICK_PROMPTS = [
 ];
 
 const INTERVIEW_PROMPT =
-  "Based on everything you currently know about my accounts, portfolio, recurring cash flows, and goals — interview me with around 10 specific questions that would help you understand my situation better and give sharper recommendations going forward. Ground the questions in my actual numbers and items where relevant (e.g. specific holdings, my goals) rather than generic finance questions. List them all now, numbered, and I'll answer through as many as I can.";
+  "Based on everything you currently know about my accounts, portfolio, recurring cash flows, and goals — I'd like you to interview me with around 10 specific questions to help you understand my situation better and give sharper recommendations. Ground each question in my actual numbers and items where relevant (e.g. specific holdings, my goals) rather than generic finance questions. Ask me one question at a time, wait for my answer, then ask the next — adapting each question based on what I've told you so far. Start with your first question now.";
 
 export default function App() {
   const [session, setSession] = useState(undefined);
