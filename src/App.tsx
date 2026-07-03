@@ -1084,6 +1084,7 @@ export default function App() {
   // ─────────────────────────────────────────────────────────────────────────
   const addAccount = () => persist({ ...data, accounts: [...accounts, { id: uid(), name: 'New account', type: 'asset', currency: baseCurrency }] });
   const removeAccount = (id) => persist({ ...data, accounts: accounts.filter((a) => a.id !== id) });
+  const updateAccount = (id, field, value) => persist({ ...data, accounts: accounts.map((a) => (a.id === id ? { ...a, [field]: value } : a)) });
 
   const updateHolding = (id, field, value) => persist({ ...data, portfolio: portfolio.map((h) => (h.id === id ? { ...h, [field]: value } : h)) });
   const addHolding = () => persist({ ...data, portfolio: [...portfolio, { id: uid(), product: 'New holding', country: '', currency: baseCurrency, risk: 'Balanced' }] });
