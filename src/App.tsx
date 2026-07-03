@@ -19,8 +19,8 @@ const MAX_HISTORY_MESSAGES = 24;
 
 const seed = {
   baseCurrency: 'AED',
-  secondaryCurrency: 'AED',
-  displayCurrency: 'USD',
+  secondaryCurrency: 'GBP',
+  displayCurrency: 'GBP',
   displaySecondaryCurrency: 'AED',
   showSecondaryCurrency: true,
   disclaimerAccepted: false,
@@ -30,26 +30,36 @@ const seed = {
   fxRates: { GBP: 4.924, USD: 3.6725 },
 
   accounts: [
-    { id: 'acc1', name: 'Your current account', type: 'asset', currency: 'AED' },
-    { id: 'acc2', name: 'Your savings account', type: 'asset', currency: 'AED' },
+    { id: 'acc1', name: 'UK current account', type: 'asset', currency: 'GBP' },
+    { id: 'acc2', name: 'Everyday account', type: 'asset', currency: 'AED' },
+    { id: 'acc3', name: 'Savings account', type: 'asset', currency: 'AED' },
   ],
 
   portfolio: [
-    { id: 'p1', product: 'Your investment portfolio', country: '', currency: 'AED', risk: 'Balanced' },
-    { id: 'p2', product: 'Pension / 401k / EOS', country: '', currency: 'AED', risk: 'Low', illiquid: true },
-    { id: 'p3', product: 'Your property equity', country: '', currency: 'AED', risk: 'Low', illiquid: true },
+    { id: 'p1', product: 'Investment account 1', country: 'UK', currency: 'GBP', risk: 'Balanced' },
+    { id: 'p2', product: 'Investment account 2', country: 'UAE', currency: 'USD', risk: 'Balanced' },
+    { id: 'p3', product: 'Savings / bonds', country: 'UK', currency: 'GBP', risk: 'Low' },
+    { id: 'p4', product: 'Local savings account', country: 'UAE', currency: 'AED', risk: 'Low' },
+    { id: 'mqe58qbczh2do', product: 'Property', country: 'UK', currency: 'GBP', risk: 'Low', illiquid: true },
   ],
 
-  goals: [],
+  goals: [
+    { id: 'g1', name: 'Emergency fund', target: 0, current: 0, targetDate: '' },
+  ],
 
-  recurringItems: [],
+  recurringItems: [
+    { id: 'r1', name: 'Salary', amount: 0, currency: 'AED', frequency: 'monthly', direction: 'in', account: 'Everyday account', category: 'Income' },
+    { id: 'r6', name: 'Rent', amount: 0, currency: 'AED', frequency: 'monthly', direction: 'out', account: 'Everyday account', category: 'Housing' },
+    { id: 'r10', name: 'Subscriptions', amount: 0, currency: 'AED', frequency: 'monthly', direction: 'out', account: 'Everyday account', category: 'Subscriptions' },
+  ],
+
 
   snapshots: [
     {
       id: 's1',
       date: new Date().toISOString().slice(0, 10),
-      balances: { acc1: 0, acc2: 0 },
-      portfolioValues: { p1: 0, p2: 0, p3: 0 },
+      balances: { acc1: 0, acc2: 0, acc3: 0 },
+      portfolioValues: { p1: 0, p2: 0, p3: 0, p4: 0, mqe58qbczh2do: 0 },
       fxRates: { GBP: 4.924, USD: 3.6725 },
       note: 'Starter template — enter your real balances via Update, or paste an exported JSON backup via Setup.',
       netRecurring: { in: 0, out: 0 },
@@ -255,7 +265,7 @@ function getCFOScoreInsight(cashNow, totalIn, totalOut, goals, liquidPortNow, sc
 
 
 function buildSystemPrompt(data) {
-  const { baseCurrency, displayCurrency = 'USD', displaySecondaryCurrency = 'AED', accounts, portfolio, goals, recurringItems, snapshots, lifeLog, fxRates } = data;
+  const { baseCurrency, displayCurrency = 'GBP', displaySecondaryCurrency = 'AED', accounts, portfolio, goals, recurringItems, snapshots, lifeLog, fxRates } = data;
   const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
   const latest = sorted[sorted.length - 1];
 
@@ -621,7 +631,7 @@ const QUICK_PROMPTS = [
 ];
 
 const INTERVIEW_PROMPT =
-  "Based on everything you currently know about my accounts, portfolio, recurring cash flows, and goals — I'd like you to interview me with around 10 specific questions to help you understand my situation better and give sharper recommendations. Ground each question in my actual numbers and items where relevant (e.g. specific holdings, my goals) rather than generic finance questions. Ask me one question at a time, number each one (e.g. \"Question 1 of 10:\"), wait for my answer, then ask the next — adapting each question based on what I've told you so far. After the final question, give a brief wrap-up summarising the key things you've learned, then proactively suggest any meaningful items worth adding to the life log based on what came up. Start with your first question now.";
+  "Based on everything you currently know about my accounts, portfolio, recurring cash flows, and goals — interview me with around 10 specific questions that would help you understand my situation better and give sharper recommendations going forward. Ground the questions in my actual numbers and items where relevant (e.g. specific holdings, my goals) rather than generic finance questions. List them all now, numbered, and I'll answer through as many as I can.";
 
 export default function App() {
   const [session, setSession] = useState(undefined);
@@ -1004,7 +1014,7 @@ export default function App() {
     );
   }
 
-  const { baseCurrency, displayCurrency = 'USD', displaySecondaryCurrency = 'AED', showSecondaryCurrency = true, accounts, portfolio, goals, recurringItems, snapshots, lifeLog, fxRates, chat } = data;
+  const { baseCurrency, displayCurrency = 'GBP', displaySecondaryCurrency = 'AED', showSecondaryCurrency = true, accounts, portfolio, goals, recurringItems, snapshots, lifeLog, fxRates, chat } = data;
 
   const fmtD = (v) => fmtGBP(v, fxRates, displayCurrency);
   const fmtDS = (v) => fmtGBPAED(v, fxRates, displayCurrency, baseCurrency);
@@ -1923,17 +1933,13 @@ export default function App() {
             <div className="card">
               <div className="card-title">Accounts</div>
               {accounts.map((a) => (
-                <div className="row" key={a.id} style={{ flexWrap: 'wrap', gap: 6 }}>
-                  <input className="input" value={a.name} onChange={(e) => updateAccount(a.id, 'name', e.target.value)} style={{ flex: '1 1 120px', minWidth: 0 }} />
-                  <select className="input select" value={a.type} onChange={(e) => updateAccount(a.id, 'type', e.target.value)} style={{ flex: '0 0 80px' }}>
+                <div className="row" key={a.id}>
+                  <input className="input" value={a.name} onChange={(e) => updateAccount(a.id, 'name', e.target.value)} style={{ flex: '1 1 auto', minWidth: 80 }} />
+                  <select className="input select" value={a.type} onChange={(e) => updateAccount(a.id, 'type', e.target.value)} style={{ flex: '0 0 90px' }}>
                     <option value="asset">asset</option>
                     <option value="liability">liability</option>
                   </select>
-                  <select className="input select mono" value={a.currency} onChange={(e) => updateAccount(a.id, 'currency', e.target.value)} style={{ flex: '0 0 68px' }}>
-                    {['GBP','AED','USD','EUR','INR','SGD','CAD','AUD','SAR','QAR','CHF','JPY','HKD','NZD','ZAR'].map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
+                  <input className="input select mono" value={a.currency} onChange={(e) => updateAccount(a.id, 'currency', e.target.value)} style={{ flex: '0 0 60px' }} />
                   <button className="icon-btn" onClick={() => removeAccount(a.id)}><Trash2 size={14} /></button>
                 </div>
               ))}
@@ -1947,11 +1953,7 @@ export default function App() {
                   <input className="input" value={h.product} onChange={(e) => updateHolding(h.id, 'product', e.target.value)} />
                   <div className="goal-row-numbers">
                     <input className="input" placeholder="Country" value={h.country} onChange={(e) => updateHolding(h.id, 'country', e.target.value)} />
-                    <select className="input mono" value={h.currency} onChange={(e) => updateHolding(h.id, 'currency', e.target.value)}>
-                      {['GBP','AED','USD','EUR','INR','SGD','CAD','AUD','SAR','QAR','CHF','JPY','HKD','NZD','ZAR'].map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
+                    <input className="input mono" placeholder="Currency" value={h.currency} onChange={(e) => updateHolding(h.id, 'currency', e.target.value)} />
                     <select className="input select" value={h.risk} disabled={!!h.illiquid} title={h.illiquid ? 'Not used for illiquid holdings' : undefined} onChange={(e) => updateHolding(h.id, 'risk', e.target.value)}>
                       <option value="Low">Low</option>
                       <option value="Balanced">Balanced</option>
@@ -1991,11 +1993,7 @@ export default function App() {
                   <input className="input" value={r.name} onChange={(e) => updateRecurring(r.id, 'name', e.target.value)} />
                   <div className="goal-row-numbers recurring-row-numbers">
                     <input type="number" className="input mono" placeholder="Amount" value={r.amount || ''} onChange={(e) => updateRecurring(r.id, 'amount', Number(e.target.value))} />
-                    <select className="input mono" value={r.currency} style={{ maxWidth: 80 }} onChange={(e) => updateRecurring(r.id, 'currency', e.target.value)}>
-                      {['GBP','AED','USD','EUR','INR','SGD','CAD','AUD','SAR','QAR','CHF','JPY','HKD','NZD','ZAR'].map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
+                    <input className="input mono" placeholder="Currency" value={r.currency} style={{ maxWidth: 70 }} onChange={(e) => updateRecurring(r.id, 'currency', e.target.value)} />
                     <select className="input select" value={r.frequency} onChange={(e) => updateRecurring(r.id, 'frequency', e.target.value)}>
                       <option value="monthly">monthly</option>
                       <option value="weekly">weekly</option>
