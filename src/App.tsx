@@ -1929,7 +1929,11 @@ export default function App() {
                     <option value="asset">asset</option>
                     <option value="liability">liability</option>
                   </select>
-                  <input className="input select mono" value={a.currency} onChange={(e) => updateAccount(a.id, 'currency', e.target.value)} style={{ flex: '0 0 60px' }} />
+                  <select className="input select mono" value={a.currency} onChange={(e) => updateAccount(a.id, 'currency', e.target.value)} style={{ flex: '0 0 75px' }}>
+                    {['GBP','AED','USD','EUR','INR','SGD','CAD','AUD','SAR','QAR','CHF','JPY','HKD','NZD','ZAR'].map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
                   <button className="icon-btn" onClick={() => removeAccount(a.id)}><Trash2 size={14} /></button>
                 </div>
               ))}
@@ -1943,7 +1947,11 @@ export default function App() {
                   <input className="input" value={h.product} onChange={(e) => updateHolding(h.id, 'product', e.target.value)} />
                   <div className="goal-row-numbers">
                     <input className="input" placeholder="Country" value={h.country} onChange={(e) => updateHolding(h.id, 'country', e.target.value)} />
-                    <input className="input mono" placeholder="Currency" value={h.currency} onChange={(e) => updateHolding(h.id, 'currency', e.target.value)} />
+                    <select className="input mono" value={h.currency} onChange={(e) => updateHolding(h.id, 'currency', e.target.value)}>
+                      {['GBP','AED','USD','EUR','INR','SGD','CAD','AUD','SAR','QAR','CHF','JPY','HKD','NZD','ZAR'].map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
                     <select className="input select" value={h.risk} disabled={!!h.illiquid} title={h.illiquid ? 'Not used for illiquid holdings' : undefined} onChange={(e) => updateHolding(h.id, 'risk', e.target.value)}>
                       <option value="Low">Low</option>
                       <option value="Balanced">Balanced</option>
@@ -1983,7 +1991,11 @@ export default function App() {
                   <input className="input" value={r.name} onChange={(e) => updateRecurring(r.id, 'name', e.target.value)} />
                   <div className="goal-row-numbers recurring-row-numbers">
                     <input type="number" className="input mono" placeholder="Amount" value={r.amount || ''} onChange={(e) => updateRecurring(r.id, 'amount', Number(e.target.value))} />
-                    <input className="input mono" placeholder="Currency" value={r.currency} style={{ maxWidth: 70 }} onChange={(e) => updateRecurring(r.id, 'currency', e.target.value)} />
+                    <select className="input mono" value={r.currency} style={{ maxWidth: 80 }} onChange={(e) => updateRecurring(r.id, 'currency', e.target.value)}>
+                      {['GBP','AED','USD','EUR','INR','SGD','CAD','AUD','SAR','QAR','CHF','JPY','HKD','NZD','ZAR'].map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
                     <select className="input select" value={r.frequency} onChange={(e) => updateRecurring(r.id, 'frequency', e.target.value)}>
                       <option value="monthly">monthly</option>
                       <option value="weekly">weekly</option>
