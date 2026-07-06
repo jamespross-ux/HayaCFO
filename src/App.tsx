@@ -1682,7 +1682,7 @@ export default function App() {
                       </span>
                       <span className="mono">
                         {fmtD(native * rateFor(h.currency, latest?.fxRates, fxRates, baseCurrency))}
-                        {showSecondaryCurrency && <span className="sub-currency"> {h.currency} {native.toLocaleString()}</span>}
+                        {showSecondaryCurrency && h.currency !== displayCurrency && <span className="sub-currency"> {h.currency} {native.toLocaleString()}</span>}
                       </span>
                     </div>
                   );
