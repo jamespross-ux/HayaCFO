@@ -609,8 +609,9 @@ function WatchDial({ percent, label, sub, accent }) {
 
 const RISK_COLORS = { Low: '#5E8C7C', Balanced: '#C9A24A', High: '#BD5B3A' };
 
-function RiskBar({ breakdown, total, currency }) {
+function RiskBar({ breakdown, total, currency, fmtDisplay }) {
   const order = ['Low', 'Balanced', 'High'];
+  const fmtVal = fmtDisplay || ((v) => fmt(v, currency));
   return (
     <div>
       <div className="risk-bar">
@@ -618,14 +619,14 @@ function RiskBar({ breakdown, total, currency }) {
           const val = breakdown[r] || 0;
           const pct = total > 0 ? (val / total) * 100 : 0;
           if (pct <= 0) return null;
-          return <div key={r} className="risk-bar-segment" style={{ width: `${pct}%`, background: RISK_COLORS[r] }} title={`${r}: ${fmt(val, currency)}`} />;
+          return <div key={r} className="risk-bar-segment" style={{ width: `${pct}%`, background: RISK_COLORS[r] }} title={`${r}: ${fmtVal(val)}`} />;
         })}
       </div>
       <div className="risk-bar-legend">
         {order.map((r) => (
           <span className="risk-legend-item" key={r}>
             <span className="risk-dot" style={{ background: RISK_COLORS[r] }} />
-            {r} {total > 0 ? Math.round(((breakdown[r] || 0) / total) * 100) : 0}% · {fmt(breakdown[r] || 0, currency)}
+            {r} {total > 0 ? Math.round(((breakdown[r] || 0) / total) * 100) : 0}% · {fmtVal(breakdown[r] || 0)}
           </span>
         ))}
       </div>
@@ -1666,7 +1667,7 @@ export default function App() {
 
             <div className="card">
               <div className="card-title">Portfolio — risk allocation</div>
-              <RiskBar breakdown={riskNow} total={liquidPortNow} currency={baseCurrency} />
+              <RiskBar breakdown={riskNow} total={liquidPortNow} currency={baseCurrency} fmtDisplay={fmtD} />
               <div className="kv-table">
                 {portfolio.map((h) => {
                   const native = Number(latest?.portfolioValues?.[h.id]) || 0;
@@ -1679,7 +1680,10 @@ export default function App() {
                         )}
                         {h.illiquid && <span className="tag" style={{ borderColor: '#7A8699', color: '#7A8699' }}>Illiquid</span>}
                       </span>
-                      <span className="mono">{h.currency} {native.toLocaleString()}</span>
+                      <span className="mono">
+                        {fmtD(native * rateFor(h.currency, latest?.fxRates, fxRates, baseCurrency))}
+                        {showSecondaryCurrency && <span className="sub-currency"> {h.currency} {native.toLocaleString()}</span>}
+                      </span>
                     </div>
                   );
                 })}
