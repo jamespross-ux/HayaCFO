@@ -2005,7 +2005,7 @@ export default function App() {
                   <div className="goal-row-numbers">
                     <input type="number" className="input mono" placeholder="Current" value={g.current || ''} onChange={(e) => updateGoal(g.id, 'current', Number(e.target.value))} />
                     <input type="number" className="input mono" placeholder="Target" value={g.target || ''} onChange={(e) => updateGoal(g.id, 'target', Number(e.target.value))} />
-                    <input type="date" className="input" value={g.targetDate} onChange={(e) => updateGoal(g.id, 'targetDate', e.target.value)} />
+                    <input type="date" className="input" value={g.targetDate} onChange={(e) => updateGoal(g.id, 'targetDate', e.target.value)} style={{ maxWidth: '100%', minWidth: 0 }} />
                     <button className="icon-btn" onClick={() => removeGoal(g.id)}><Trash2 size={14} /></button>
                   </div>
                 </div>
