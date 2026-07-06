@@ -1843,7 +1843,7 @@ export default function App() {
               <p className="muted-text">Enter current balances and tell your CFO what's happening — both feed into the next conversation.</p>
               <div className="field">
                 <label>Date</label>
-                <input type="date" className="input" value={updateForm.date} onChange={(e) => setUpdateForm({ ...updateForm, date: e.target.value })} />
+                <div className="input" style={{ color: '#7A8699', cursor: 'default', userSelect: 'none' }}>{updateForm.date}</div>
               </div>
 
               <div className="section-label">Account balances (own currency)</div>
@@ -2571,9 +2571,10 @@ textarea.input { resize: vertical; }
 .goal-row { border-bottom: 1px solid rgba(27,36,48,0.08); padding-bottom: 10px; margin-bottom: 10px; }
 .goal-row > .input { margin-bottom: 8px; }
 .goal-row-numbers { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; align-items: end; overflow: hidden; }
-input[type="date"] { max-width: 100%; min-width: 0; width: 100%; }
-@media (max-width: 480px) {
-  .goal-row-numbers { grid-template-columns: 1fr 1fr auto; }
+input[type="date"] { max-width: 100%; min-width: 0; width: 100%; box-sizing: border-box; }
+@media (max-width: 600px) {
+  .goal-row-numbers { grid-template-columns: 1fr 1fr auto; flex-wrap: wrap; }
+  .goal-row-numbers input[type="date"] { grid-column: 1 / span 2; }
 }
 .recurring-row-numbers { grid-template-columns: 1fr 70px 1fr 60px auto; }
 @media (max-width: 480px) {
