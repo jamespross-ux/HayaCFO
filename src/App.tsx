@@ -276,14 +276,14 @@ function buildSystemPrompt(data) {
     `Be direct, concise, and specific to their actual numbers. Surface patterns, risks, and trade-offs honestly, including uncomfortable ones (concentration, FX exposure, a goal becoming unrealistic, a recurring outflow growing, etc.). For decisions, present 2-3 concrete options with trade-offs in neutral language ("Option A would mean..."), not "you should". This is not regulated financial advice and they know that — don't add disclaimers. Use short paragraphs, ## headers and bullet lists only where they aid clarity. No filler or generic platitudes.`
   );
   lines.push(
-    `Note: only recent chat history is sent with each request (older turns are trimmed). Durable facts — decisions, plans, new goals, life events — won't persist in chat memory, so when something important like that comes up, suggest he note it via Update or the life log so it's retained.`
+    `Note: only recent chat history is sent with each request (older turns are trimmed). Durable facts — decisions, plans, new goals, life events — won't persist in chat memory, so when something important like that comes up, suggest the user note it via Update or the life log so it's retained.`
   );
   lines.push(
-    `Note: James prefers GBP as the primary currency for headline figures, with AED shown alongside for reference (the dashboard now displays figures this way: "£X (AED Y)"). Follow this convention in conversation too — lead with GBP, AED in brackets — using the FX rate above.`
+    `Note: the user's preferred display currency is ${displayCurrency}. Lead with ${displayCurrency} figures in conversation, with ${baseCurrency} in brackets where helpful — using the FX rates above.`
   );
   lines.push('');
   lines.push(
-    `You have access to a tool called add_life_log_entry. Use it to record meaningful life or financial events to James's permanent life log — things like job changes, major decisions, big expenses, life events, or important context about his financial situation. When something worth logging comes up naturally in conversation, proactively offer: "Would you like me to add that to your life log?" Wait for explicit confirmation before calling the tool. Write entries as clean, neutral, third-person summaries. Do not log trivial messages, profanity, or anything that wouldn't belong in a professional financial record.`
+    `You have access to a tool called add_life_log_entry. Use it to record meaningful life or financial events to the user's permanent life log — things like job changes, major decisions, big expenses, life events, or important context about their financial situation. When something worth logging comes up naturally in conversation, proactively offer: "Would you like me to add that to your life log?" Wait for explicit confirmation before calling the tool. Write entries as clean, neutral, third-person summaries. Do not log trivial messages, profanity, or anything that wouldn't belong in a professional financial record.`
   );
   lines.push('');
   lines.push(`=== CURRENT FINANCIAL POSITION (as of ${latest?.date || 'no snapshot yet'}) ===`);
@@ -292,6 +292,34 @@ function buildSystemPrompt(data) {
   if (illiquidPort > 0) {
     lines.push(`Illiquid assets (excluded from the headline figure): ${fmt(illiquidPort, baseCurrency)}. Total net worth including these: ${fmt(nw, baseCurrency)}.`);
   }
+
+  // Pre-computed display currency figures so the CFO works from the same numbers the user sees
+  const dispRate = displayCurrency === baseCurrency ? 1 : (1 / ((fxRates || {})[displayCurrency] || 1));
+  const fmtDisp = (v) => {
+    const converted = v * dispRate;
+    return `${displayCurrency} ${converted.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+  };
+  const prevSnap = sorted.length >= 2 ? sorted[sorted.length - 2] : null;
+  const prevCash = prevSnap ? accountsTotal(prevSnap, accounts, fxRates, baseCurrency) : null;
+  const prevLiqPort = prevSnap ? portfolioTotal(prevSnap, portfolio, fxRates, baseCurrency, { excludeIlliquid: true }) : null;
+  const prevLiqNw = prevCash !== null ? prevCash + prevLiqPort : null;
+  const delta = prevLiqNw !== null ? liquidNw - prevLiqNw : null;
+  const snap7 = sorted.length >= 7 ? sorted[sorted.length - 7] : null;
+  const snap30 = sorted.length >= 30 ? sorted[sorted.length - 30] : null;
+  const liqNw7 = snap7 ? accountsTotal(snap7, accounts, fxRates, baseCurrency) + portfolioTotal(snap7, portfolio, fxRates, baseCurrency, { excludeIlliquid: true }) : null;
+  const liqNw30 = snap30 ? accountsTotal(snap30, accounts, fxRates, baseCurrency) + portfolioTotal(snap30, portfolio, fxRates, baseCurrency, { excludeIlliquid: true }) : null;
+
+  lines.push('');
+  lines.push(`=== DISPLAY CURRENCY FIGURES (what the user sees on their dashboard in ${displayCurrency}) ===`);
+  lines.push(`Liquid net worth: ${fmtDisp(liquidNw)}`);
+  lines.push(`Cash: ${fmtDisp(cash)}`);
+  lines.push(`Liquid portfolio: ${fmtDisp(liquidPort)}`);
+  if (illiquidPort > 0) lines.push(`Illiquid assets: ${fmtDisp(illiquidPort)}`);
+  lines.push(`Total net worth (incl. illiquid): ${fmtDisp(nw)}`);
+  if (delta !== null) lines.push(`Since last update: ${delta >= 0 ? '+' : ''}${fmtDisp(delta)}`);
+  if (liqNw7 !== null) lines.push(`7-day change: ${liquidNw - liqNw7 >= 0 ? '+' : ''}${fmtDisp(liquidNw - liqNw7)}`);
+  if (liqNw30 !== null) lines.push(`30-day change: ${liquidNw - liqNw30 >= 0 ? '+' : ''}${fmtDisp(liquidNw - liqNw30)}`);
+  lines.push(`When the user references figures like "${fmtDisp(liquidNw)}" or "${delta !== null ? fmtDisp(Math.abs(delta)) : 'a delta'}", these are the numbers they're looking at. Use these ${displayCurrency} figures naturally in conversation.`);
   lines.push('');
   lines.push('Accounts:');
   accounts.forEach((a) => {
@@ -625,7 +653,7 @@ const QUICK_PROMPTS = [
 ];
 
 const INTERVIEW_PROMPT =
-  "Based on everything you currently know about my accounts, portfolio, recurring cash flows, and goals — interview me with around 10 specific questions that would help you understand my situation better and give sharper recommendations going forward. Ground the questions in my actual numbers and items where relevant (e.g. specific holdings, my goals) rather than generic finance questions. List them all now, numbered, and I'll answer through as many as I can.";
+  "Based on everything you currently know about my accounts, portfolio, recurring cash flows, and goals — I'd like you to interview me with around 10 specific questions to help you understand my situation better and give sharper recommendations. Ground each question in my actual numbers and items where relevant (e.g. specific holdings, my goals) rather than generic finance questions. Ask me one question at a time, number each one (e.g. \"Question 1 of 10:\"), wait for my answer, then ask the next — adapting each question based on what I've told you so far. After the final question, give a brief wrap-up summarising the key things you've learned, then proactively suggest any meaningful items worth adding to the life log based on what came up. Start with your first question now.";
 
 export default function App() {
   const [session, setSession] = useState(undefined);
