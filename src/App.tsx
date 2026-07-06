@@ -2566,9 +2566,10 @@ textarea.input { resize: vertical; }
 
 .goal-row { border-bottom: 1px solid rgba(27,36,48,0.08); padding-bottom: 10px; margin-bottom: 10px; }
 .goal-row > .input { margin-bottom: 8px; }
-.goal-row-numbers { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; align-items: end; }
+.goal-row-numbers { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; align-items: end; overflow: hidden; }
 @media (max-width: 480px) {
-  .goal-row-numbers { grid-template-columns: 1fr 1fr auto; }
+  .goal-row-numbers { grid-template-columns: 1fr 1fr; }
+  .goal-row-numbers input[type="date"] { grid-column: 1 / -1; }
 }
 .recurring-row-numbers { grid-template-columns: 1fr 70px 1fr 60px auto; }
 @media (max-width: 480px) {
