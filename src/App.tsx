@@ -1843,7 +1843,9 @@ export default function App() {
               <p className="muted-text">Enter current balances and tell your CFO what's happening — both feed into the next conversation.</p>
               <div className="field">
                 <label>Date</label>
-                <div className="input" style={{ color: '#7A8699', cursor: 'default', userSelect: 'none' }}>{updateForm.date}</div>
+                <div className="input" style={{ color: '#7A8699', cursor: 'default', userSelect: 'none' }}>
+                  {new Date(updateForm.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </div>
               </div>
 
               <div className="section-label">Account balances (own currency)</div>
