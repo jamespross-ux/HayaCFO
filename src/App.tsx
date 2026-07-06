@@ -1559,15 +1559,15 @@ export default function App() {
               <div className="masthead-cell-value">{fmtD(liquidPortNow)}</div>
               {showSecondaryCurrency && <div className="masthead-cell-secondary">{fmt(liquidPortNow, baseCurrency)}</div>}
             </div>
-            {illiquidNow > 0 && (
-              <div className="masthead-cell">
-                <div className="masthead-cell-label">Illiquid</div>
-                <div className="masthead-cell-value">{fmtD(illiquidNow)}</div>
-                <div className="masthead-cell-secondary">
-                  {portfolio.filter((h) => h.illiquid).map((h) => h.product).join(' · ')}
-                </div>
+            <div className="masthead-cell">
+              <div className="masthead-cell-label">Illiquid</div>
+              <div className="masthead-cell-value">{fmtD(illiquidNow)}</div>
+              <div className="masthead-cell-secondary">
+                {illiquidNow > 0
+                  ? portfolio.filter((h) => h.illiquid).map((h) => h.product).join(' · ')
+                  : 'None recorded'}
               </div>
-            )}
+            </div>
             <div className="masthead-cell masthead-cell-total">
               <div className="masthead-cell-label" style={{ color: '#C9A24A' }}>Total</div>
               <div className="masthead-cell-value">{fmtD(nwNow)}</div>
