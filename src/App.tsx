@@ -42,7 +42,9 @@ const seed = {
 
   goals: [],
 
-  recurringItems: [],
+  recurringItems: [
+    { id: 'r-savings', name: 'Monthly savings transfer', amount: 0, currency: 'AED', frequency: 'monthly', direction: 'out', account: 'Your savings account', category: 'Savings' },
+  ],
 
   snapshots: [
     {
@@ -654,19 +656,16 @@ const QUICK_PROMPTS = [
 ];
 
 const INTERVIEW_PROMPT =
-  "Based on everything you currently know about my accounts, portfolio, recurring cash flows, and goals — I'd like you to interview me with around 10 specific questions to help you understand my situation better and give sharper recommendations. Ground each question in my actual numbers and items where relevant (e.g. specific holdings, my goals) rather than generic finance questions. Ask me one question at a time, number each one (e.g. \"Question 1 of 10:\"), wait for my answer, then ask the next — adapting each question based on what I've told you so far. After the final question, give a brief wrap-up summarising the key things you've learned, then proactively suggest any meaningful items worth adding to the life log based on what came up. Start with your first question now.";
+  "Based on everything you currently know about my accounts, portfolio, recurring cash flows, and goals — I'd like you to interview me with around 10 specific questions to help you understand my situation better and give sharper recommendations. Ground each question in my actual numbers and items where relevant (e.g. specific holdings, my goals) rather than generic finance questions. One question must always be included: 'Do you make any regular savings transfers or investments each month that aren't already listed as outflows? If so, we should add them to keep your surplus and CFO Score accurate.' Ask me one question at a time, number each one (e.g. \"Question 1 of 10:\"), wait for my answer, then ask the next — adapting each question based on what I've told you so far. After the final question, give a brief wrap-up summarising the key things you've learned, then proactively suggest any meaningful items worth adding to the life log based on what came up. Start with your first question now.";
 
 export default function App() {
   const [session, setSession] = useState(undefined);
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
-  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'forgot' | 'reset'>('signin');
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
   const [inviteCode, setInviteCode] = useState('');
-  const [authInfo, setAuthInfo] = useState(null);
-  const [newPassword, setNewPassword] = useState('');
-  const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
 
   const [data, setData] = useState(null);
   const [tab, setTab] = useState('dashboard');
@@ -699,11 +698,6 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session ?? null);
       if (!session) { setData(null); setUpdateForm(null); }
-      if (_event === 'PASSWORD_RECOVERY') {
-        setAuthMode('reset');
-        setAuthError(null);
-        setAuthInfo(null);
-      }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -881,53 +875,6 @@ export default function App() {
     if (error) setAuthError(error.message);
   };
 
-  const handleForgotPassword = async () => {
-    setAuthLoading(true);
-    setAuthError(null);
-    setAuthInfo(null);
-    const email = authEmail.trim();
-    if (!email) {
-      setAuthError('Enter your email address first.');
-      setAuthLoading(false);
-      return;
-    }
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://app.hayacfo.com',
-    });
-    setAuthLoading(false);
-    // Always show the same neutral message, regardless of whether the email
-    // exists — this avoids leaking which emails are registered users.
-    if (error) {
-      setAuthError('Something went wrong sending the reset email. Please try again.');
-    } else {
-      setAuthInfo('If an account exists for that email, a reset link has been sent. Check your inbox.');
-    }
-  };
-
-  const handleResetPassword = async () => {
-    setAuthError(null);
-    if (newPassword.length < 8) {
-      setAuthError('Password must be at least 8 characters.');
-      return;
-    }
-    if (newPassword !== newPasswordConfirm) {
-      setAuthError('Passwords do not match.');
-      return;
-    }
-    setAuthLoading(true);
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    setAuthLoading(false);
-    if (error) {
-      setAuthError(error.message);
-      return;
-    }
-    setNewPassword('');
-    setNewPasswordConfirm('');
-    setAuthMode('signin');
-    setAuthError(null);
-    setAuthInfo(null);
-  };
-
   const signOut = async () => {
     await supabase.auth.signOut();
   };
@@ -963,7 +910,7 @@ export default function App() {
     );
   }
 
-  if (!session || authMode === 'reset') {
+  if (!session) {
     return (
       <div className="cfo">
         <style>{baseCSS}</style>
@@ -978,65 +925,8 @@ export default function App() {
             <span style={{ fontFamily: 'IBM Plex Sans, sans-serif', fontSize: 18, fontWeight: 700, color: '#101C2E', letterSpacing: '-0.3px' }}>Haya<span style={{ color: '#C9A24A' }}>CFO</span></span>
           </div>
           <div style={{ fontFamily: 'IBM Plex Serif, serif', fontSize: 22, color: '#101C2E', textAlign: 'center' }}>
-            {authMode === 'signin' ? 'Sign in to your CFO' : authMode === 'signup' ? 'Create your account' : authMode === 'reset' ? 'Set a new password' : 'Reset your password'}
+            {authMode === 'signin' ? 'Sign in to your CFO' : 'Create your account'}
           </div>
-
-          {authMode === 'reset' ? (
-            <>
-              <p style={{ fontFamily: 'IBM Plex Sans, sans-serif', fontSize: 13, color: '#7A8699', textAlign: 'center', maxWidth: 320, margin: 0 }}>
-                Choose a new password for your account.
-              </p>
-              <input
-                className="input"
-                type="password"
-                placeholder="New password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleResetPassword()}
-                style={{ maxWidth: 320, width: '100%' }}
-              />
-              <input
-                className="input"
-                type="password"
-                placeholder="Confirm new password"
-                value={newPasswordConfirm}
-                onChange={(e) => setNewPasswordConfirm(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleResetPassword()}
-                style={{ maxWidth: 320, width: '100%' }}
-              />
-              {authError && <p style={{ color: '#BD5B3A', fontSize: 12, margin: 0 }}>{authError}</p>}
-              <button className="btn-primary" onClick={handleResetPassword} disabled={authLoading || !newPassword || !newPasswordConfirm}>
-                {authLoading ? '…' : 'Set new password'}
-              </button>
-              <button className="btn-secondary" onClick={() => { signOut(); setAuthMode('signin'); setNewPassword(''); setNewPasswordConfirm(''); setAuthError(null); }}>
-                Cancel
-              </button>
-            </>
-          ) : authMode === 'forgot' ? (
-            <>
-              <p style={{ fontFamily: 'IBM Plex Sans, sans-serif', fontSize: 13, color: '#7A8699', textAlign: 'center', maxWidth: 320, margin: 0 }}>
-                Enter your email and we'll send you a link to reset your password.
-              </p>
-              <input
-                className="input"
-                type="email"
-                placeholder="Email"
-                value={authEmail}
-                onChange={(e) => setAuthEmail(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleForgotPassword()}
-                style={{ maxWidth: 320, width: '100%' }}
-              />
-              {authError && <p style={{ color: '#BD5B3A', fontSize: 12, margin: 0 }}>{authError}</p>}
-              {authInfo && <p style={{ color: '#101C2E', fontSize: 12, margin: 0, textAlign: 'center', maxWidth: 320 }}>{authInfo}</p>}
-              <button className="btn-primary" onClick={handleForgotPassword} disabled={authLoading || !authEmail.trim()}>
-                {authLoading ? '…' : 'Send reset link'}
-              </button>
-              <button className="btn-secondary" onClick={() => { setAuthMode('signin'); setAuthError(null); setAuthInfo(null); }}>
-                Back to sign in
-              </button>
-            </>
-          ) : (
-            <>
           <input
             className="input"
             type="email"
@@ -1070,16 +960,9 @@ export default function App() {
           <button className="btn-primary" onClick={handleAuth} disabled={authLoading || !authEmail.trim() || !authPassword.trim() || (authMode === 'signup' && !inviteCode.trim())}>
             {authLoading ? '…' : authMode === 'signin' ? 'Sign in' : 'Create account'}
           </button>
-          {authMode === 'signin' && (
-            <button className="btn-secondary" onClick={() => { setAuthMode('forgot'); setAuthError(null); setAuthInfo(null); }}>
-              Forgot password?
-            </button>
-          )}
           <button className="btn-secondary" onClick={() => { setAuthMode(authMode === 'signin' ? 'signup' : 'signin'); setAuthError(null); setInviteCode(''); }}>
             {authMode === 'signin' ? 'First time? Create account' : 'Already have an account? Sign in'}
           </button>
-            </>
-          )}
         </div>
       </div>
     );
@@ -1678,15 +1561,15 @@ export default function App() {
               <div className="masthead-cell-value">{fmtD(liquidPortNow)}</div>
               {showSecondaryCurrency && <div className="masthead-cell-secondary">{fmt(liquidPortNow, baseCurrency)}</div>}
             </div>
-            <div className="masthead-cell">
-              <div className="masthead-cell-label">Illiquid</div>
-              <div className="masthead-cell-value">{fmtD(illiquidNow)}</div>
-              <div className="masthead-cell-secondary">
-                {illiquidNow > 0
-                  ? portfolio.filter((h) => h.illiquid).map((h) => h.product).join(' · ')
-                  : 'None recorded'}
+            {illiquidNow > 0 && (
+              <div className="masthead-cell">
+                <div className="masthead-cell-label">Illiquid</div>
+                <div className="masthead-cell-value">{fmtD(illiquidNow)}</div>
+                <div className="masthead-cell-secondary">
+                  {portfolio.filter((h) => h.illiquid).map((h) => h.product).join(' · ')}
+                </div>
               </div>
-            </div>
+            )}
             <div className="masthead-cell masthead-cell-total">
               <div className="masthead-cell-label" style={{ color: '#C9A24A' }}>Total</div>
               <div className="masthead-cell-value">{fmtD(nwNow)}</div>
