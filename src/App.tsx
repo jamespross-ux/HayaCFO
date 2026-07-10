@@ -1310,9 +1310,14 @@ export default function App() {
           tools: [LIFE_LOG_TOOL],
           system: [{ type: 'text', text: buildSystemPrompt(data), cache_control: { type: 'ephemeral' } }],
           messages: apiMessages.map((m) => ({ role: m.role, content: m.content })),
+          user_id: session.user.id,
         }),
       });
 
+      if (response.status === 429) {
+        const limitJson = await response.json().catch(() => null);
+        throw new Error(limitJson?.message || "You've reached your message limit. Please try again later.");
+      }
       if (!response.ok) {
         const errText = await response.text();
         throw new Error(`status ${response.status}: ${errText.slice(0, 200)}`);
@@ -1418,6 +1423,7 @@ export default function App() {
               assistantToolMsg,
               toolResultMsg,
             ],
+            user_id: session.user.id,
           }),
         });
 
@@ -1438,7 +1444,10 @@ export default function App() {
       persist({ ...data, chat: [...nextChat, { role: 'assistant', content: replyText }] });
 
     } catch (e) {
-      setChatError(`Could not reach the CFO just now (${e.message || 'unknown error'}). Try again in a moment.`);
+      const isLimitMessage = /message limit|too quickly/i.test(e.message || '');
+      setChatError(isLimitMessage
+        ? e.message
+        : `Could not reach the CFO just now (${e.message || 'unknown error'}). Try again in a moment.`);
       persist({ ...data, chat: nextChat });
     } finally {
       setChatLoading(false);
