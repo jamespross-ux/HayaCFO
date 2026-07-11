@@ -130,31 +130,26 @@ const riskBreakdown = (snap, portfolio, dataFx, base) => {
 };
 
 // ── Net Worth Projection ────────────────────────────────────────────────────
-// Projects liquid net worth (cash + liquid portfolio) forward 5 years.
-// Mid line: each risk bucket (Low/Balanced/High) compounds at its own assumed
-// annual return. Upper/lower band: same total liquid portfolio, but assumed to
-// grow entirely at the High (12%) or Low (3%) rate for the whole period.
-// Cash grows only from monthly surplus (income - outflows), no interest assumed.
-// Income is assumed to grow 4%/yr (salary growth), outflows 3%/yr (inflation).
-// Illiquid assets (property, pensions) are excluded, consistent with the
-// existing "liquid net worth" figure used elsewhere on the dashboard.
+// Projects TOTAL net worth (cash + liquid portfolio + illiquid assets) forward
+// 5 years. Mid line: each risk bucket (Low/Balanced/High) compounds at its own
+// assumed annual return. Cash grows only from monthly surplus (income - outflows),
+// no interest assumed. Income is assumed to grow 4%/yr (salary growth), outflows
+// 3%/yr (inflation). Illiquid assets (property, pensions) are held flat — no
+// appreciation or depreciation assumed, since no rate was specified for them.
+// Upper/lower band: a symmetric margin around the mid line that widens evenly
+// over time — 0% today (today's number isn't uncertain) up to ±15% by year 5 —
+// representing general forecast uncertainty rather than a specific scenario.
 const PROJECTION_MONTHS = 60;
 const PROJECTION_RATES = { Low: 0.03, Balanced: 0.07, High: 0.12 };
 const SALARY_GROWTH = 0.04;
 const SPENDING_GROWTH = 0.03;
+const PROJECTION_BAND_MAX_PCT = 0.15; // symmetric band width at the 5-year mark
 const monthlyRate = (annual) => Math.pow(1 + annual, 1 / 12) - 1;
 
-const projectNetWorth = (cashNow, riskNow, totalIn, totalOut) => {
-  const buckets = { mid: { ...riskNow }, upper: null, lower: null };
-  const totalPortfolioNow = (riskNow.Low || 0) + (riskNow.Balanced || 0) + (riskNow.High || 0);
-  let cashMid = cashNow, cashUpper = cashNow, cashLower = cashNow;
+const projectNetWorth = (cashNow, riskNow, totalIn, totalOut, illiquidNow = 0) => {
+  let cashMid = cashNow;
   let portMid = { ...riskNow };
-  let portUpper = totalPortfolioNow;
-  let portLower = totalPortfolioNow;
-
   const midRates = { Low: monthlyRate(PROJECTION_RATES.Low), Balanced: monthlyRate(PROJECTION_RATES.Balanced), High: monthlyRate(PROJECTION_RATES.High) };
-  const upperRate = monthlyRate(PROJECTION_RATES.High);
-  const lowerRate = monthlyRate(PROJECTION_RATES.Low);
 
   const points = [];
   const today = new Date();
@@ -165,30 +160,28 @@ const projectNetWorth = (cashNow, riskNow, totalIn, totalOut) => {
       const monthlyIncome = totalIn * Math.pow(1 + SALARY_GROWTH, yearIdx);
       const monthlyOutflow = totalOut * Math.pow(1 + SPENDING_GROWTH, yearIdx);
       const surplus = monthlyIncome - monthlyOutflow;
-      cashMid += surplus; cashUpper += surplus; cashLower += surplus;
+      cashMid += surplus;
 
       portMid.Low = (portMid.Low || 0) * (1 + midRates.Low);
       portMid.Balanced = (portMid.Balanced || 0) * (1 + midRates.Balanced);
       portMid.High = (portMid.High || 0) * (1 + midRates.High);
-      portUpper *= (1 + upperRate);
-      portLower *= (1 + lowerRate);
     }
     const portMidTotal = (portMid.Low || 0) + (portMid.Balanced || 0) + (portMid.High || 0);
-    const mid = cashMid + portMidTotal;
-    const upper = cashUpper + portUpper;
-    const lower = cashLower + portLower;
+    const mid = cashMid + portMidTotal + illiquidNow;
+    const bandPct = PROJECTION_BAND_MAX_PCT * (m / PROJECTION_MONTHS);
     const d = new Date(today.getFullYear(), today.getMonth() + m, 1);
     points.push({
       month: m,
       label: m % 12 === 0 ? String(d.getFullYear()) : '',
       mid: Math.round(mid),
-      upper: Math.round(Math.max(upper, mid)),
-      lower: Math.round(Math.min(lower, mid)),
+      upper: Math.round(mid * (1 + bandPct)),
+      lower: Math.round(mid * (1 - bandPct)),
     });
   }
-  // bandHeight is used to stack an Area on top of "lower" so the shaded
-  // region spans exactly [lower, upper] regardless of chart scale.
-  return points.map((p) => ({ ...p, bandHeight: p.upper - p.lower }));
+  // lowerBandHeight/upperBandHeight are used to stack two differently-coloured
+  // Areas on top of "lower" — grey below the mid line, green above it — so the
+  // shaded region spans exactly [lower, upper] with a colour split at "mid".
+  return points.map((p) => ({ ...p, lowerBandHeight: p.mid - p.lower, upperBandHeight: p.upper - p.mid }));
 };
 
 const monthlyInBase = (item, dataFx, base) => {
@@ -489,15 +482,15 @@ function buildSystemPrompt(data) {
   // Net worth projection — dashboard chart the CFO should be able to explain and caveat
   const projRisk = latestSnap ? riskBreakdown(latestSnap, portfolio, fxRates, baseCurrency) : { Low: 0, Balanced: 0, High: 0 };
   if (latestSnap) {
-    const projected = projectNetWorth(cNow, projRisk, tIn, tOut);
+    const projected = projectNetWorth(cNow, projRisk, tIn, tOut, illiquidPort);
     const final = projected[projected.length - 1];
     lines.push('');
-    lines.push('=== NET WORTH PROJECTION (dashboard chart) ===');
-    lines.push(`The dashboard shows a 5-year liquid net worth projection (cash + liquid portfolio; property/pension excluded, same as the headline liquid net worth figure).`);
-    lines.push(`Methodology: portfolio holdings grow at assumed annual rates by risk bucket — Low 3%, Balanced 7%, High 12% — compounded monthly, each bucket using its own actual current value (Low ${fmt(projRisk.Low, baseCurrency)}, Balanced ${fmt(projRisk.Balanced, baseCurrency)}, High ${fmt(projRisk.High, baseCurrency)}). Monthly income is assumed to grow 4%/year (salary growth), monthly outflows 3%/year (inflation), and the resulting surplus each month adds to cash with no interest assumed on cash itself.`);
-    lines.push(`The shaded range is not a statistical confidence interval — it's a simple best-case/worst-case: the upper line assumes the ENTIRE liquid portfolio grows at the High rate (12%) for all 5 years, the lower line assumes it ALL grows at the Low rate (3%) for all 5 years. The middle line (each bucket at its own rate) is the more realistic estimate.`);
-    lines.push(`In 5 years this projects to roughly ${fmt(final.mid, baseCurrency)} (estimate), ranging from ${fmt(final.lower, baseCurrency)} (worst case) to ${fmt(final.upper, baseCurrency)} (best case).`);
-    lines.push(`When asked about this chart, be direct about its limits: it assumes steady, uninterrupted growth in income, spending, and markets, which real life rarely delivers — job changes, market drawdowns, one-off expenses, or life events (a move, a career gap) would all knock it off track. It's a planning estimate, not a forecast or guarantee. If the user's situation includes anything you already know that would materially affect this (e.g. a known income gap, a big planned expense), point that out specifically rather than giving a generic disclaimer.`);
+    lines.push('=== TOTAL NET WORTH PROJECTION (dashboard chart) ===');
+    lines.push(`The dashboard shows a 5-year TOTAL net worth projection: cash + liquid portfolio + illiquid assets (property, pension).`);
+    lines.push(`Methodology: portfolio holdings grow at assumed annual rates by risk bucket — Low 3%, Balanced 7%, High 12% — compounded monthly, each bucket using its own actual current value (Low ${fmt(projRisk.Low, baseCurrency)}, Balanced ${fmt(projRisk.Balanced, baseCurrency)}, High ${fmt(projRisk.High, baseCurrency)}). Monthly income is assumed to grow 4%/year (salary growth), monthly outflows 3%/year (inflation), and the resulting surplus each month adds to cash with no interest assumed on cash itself. Illiquid assets (currently ${fmt(illiquidPort, baseCurrency)}) are held FLAT — no appreciation or depreciation assumed, since no rate was specified for them (e.g. property price growth is not modelled).`);
+    lines.push(`The shaded range is a general margin of uncertainty around the estimate, not a specific scenario — it starts at 0% today and widens evenly to ±15% by year 5, reflecting that longer-range projections are inherently less certain. It is not a statistical confidence interval and not tied to any specific best/worst-case assumption.`);
+    lines.push(`In 5 years this projects to roughly ${fmt(final.mid, baseCurrency)} (estimate), with a shown range of roughly ${fmt(final.lower, baseCurrency)} to ${fmt(final.upper, baseCurrency)}.`);
+    lines.push(`When asked about this chart, be direct about its limits: it assumes steady, uninterrupted growth in income, spending, and markets, which real life rarely delivers — job changes, market drawdowns, one-off expenses, or life events (a move, a career gap) would all knock it off track. A large share of the total may be illiquid (property/pension) and held flat, so the visible growth is mostly driven by cash/portfolio changes — worth pointing out if the user seems to be reading the total as more liquid or more certain than it is. It's a planning estimate, not a forecast or guarantee. If the user's situation includes anything you already know that would materially affect this (e.g. a known income gap, a big planned expense), point that out specifically rather than giving a generic disclaimer.`);
   }
 
   return lines.join('\n');
@@ -1159,7 +1152,7 @@ export default function App() {
   const totalIn = incomeItems.reduce((s, r) => s + monthlyInBase(r, fxRates, baseCurrency), 0);
   const totalOut = outflowItems.reduce((s, r) => s + monthlyInBase(r, fxRates, baseCurrency), 0);
 
-  const projectionData = latest ? projectNetWorth(cashNow, riskNow, totalIn, totalOut) : null;
+  const projectionData = latest ? projectNetWorth(cashNow, riskNow, totalIn, totalOut, illiquidNow) : null;
 
   const cfoScore = calcCFOScore(cashNow, totalIn, totalOut, goals, liquidPortNow);
   const cfoScoreInsight = cfoScore !== null
@@ -1725,39 +1718,25 @@ export default function App() {
               </div>
             )}
 
-            {sortedSnaps.length > 1 && (
-              <div className="card">
-                <div className="card-title">Liquid net worth over time</div>
-                <ResponsiveContainer width="100%" height={160}>
-                  <LineChart data={chartData}>
-                    <CartesianGrid stroke="#E4DCC8" vertical={false} />
-                    <XAxis dataKey="date" tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" />
-                    <YAxis tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => { const rate = fxRates?.[displayCurrency] || 1; return `${((v / rate) / 1000).toFixed(0)}k`; }} width={48} />
-                    <Tooltip formatter={(v) => fmtD(v)} contentStyle={{ fontFamily: 'IBM Plex Sans', fontSize: 12, borderRadius: 4 }} />
-                    <Line type="monotone" dataKey="netWorth" stroke="#C9A24A" strokeWidth={2.5} dot={{ r: 3 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-
             {projectionData && (
               <div className="card">
-                <div className="card-title">Net worth projection · next 5 years</div>
+                <div className="card-title">Total net worth projection · next 5 years</div>
                 <ResponsiveContainer width="100%" height={180}>
-                  <ComposedChart data={projectionData}>
+                  <ComposedChart data={projectionData} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke="#E4DCC8" vertical={false} />
                     <XAxis dataKey="label" tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" interval={0} />
                     <YAxis tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => { const rate = fxRates?.[displayCurrency] || 1; return `${((v / rate) / 1000).toFixed(0)}k`; }} width={48} />
                     <Tooltip
                       contentStyle={{ fontFamily: 'IBM Plex Sans', fontSize: 12, borderRadius: 4 }}
                       formatter={(value, name) => {
-                        if (name === 'lower' || name === 'bandHeight') return null;
-                        const label = name === 'mid' ? 'Estimate' : name === 'upper' ? 'Best case' : name;
+                        if (name === 'lowerBandHeight' || name === 'upperBandHeight') return null;
+                        const label = name === 'mid' ? 'Estimate' : name === 'upper' ? 'Upper range' : name === 'lower' ? 'Lower range' : name;
                         return [fmtD(value), label];
                       }}
                     />
                     <Area type="monotone" dataKey="lower" stackId="band" stroke="none" fill="transparent" />
-                    <Area type="monotone" dataKey="bandHeight" stackId="band" stroke="none" fill="#C9A24A" fillOpacity={0.15} />
+                    <Area type="monotone" dataKey="lowerBandHeight" stackId="band" stroke="none" fill="#7A8699" fillOpacity={0.18} />
+                    <Area type="monotone" dataKey="upperBandHeight" stackId="band" stroke="none" fill="#6B9080" fillOpacity={0.18} />
                     <Line type="monotone" dataKey="mid" stroke="#C9A24A" strokeWidth={2.5} dot={false} />
                     <Line type="monotone" dataKey="upper" stroke="#C9A24A" strokeWidth={0} dot={false} legendType="none" />
                   </ComposedChart>
@@ -1772,6 +1751,21 @@ export default function App() {
                 >
                   Ask your CFO →
                 </button>
+              </div>
+            )}
+
+            {sortedSnaps.length > 1 && (
+              <div className="card">
+                <div className="card-title">Liquid net worth over time</div>
+                <ResponsiveContainer width="100%" height={160}>
+                  <LineChart data={chartData}>
+                    <CartesianGrid stroke="#E4DCC8" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" />
+                    <YAxis tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => { const rate = fxRates?.[displayCurrency] || 1; return `${((v / rate) / 1000).toFixed(0)}k`; }} width={48} />
+                    <Tooltip formatter={(v) => fmtD(v)} contentStyle={{ fontFamily: 'IBM Plex Sans', fontSize: 12, borderRadius: 4 }} />
+                    <Line type="monotone" dataKey="netWorth" stroke="#C9A24A" strokeWidth={2.5} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             )}
 
