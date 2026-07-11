@@ -1814,46 +1814,6 @@ export default function App() {
             )}
 
             <div className="card">
-              <div className="card-title">Accounts</div>
-              <div className="kv-table">
-                {accounts.map((a) => {
-                  const bal = Number(latest?.balances?.[a.id]) || 0;
-                  return (
-                    <div className="kv" key={a.id}>
-                      <span>{a.name}</span>
-                      <span className="mono">{a.currency} {bal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="card">
-              <div className="card-title">Your investments</div>
-              <RiskBar breakdown={riskNow} total={liquidPortNow} currency={baseCurrency} fmtDisplay={fmtD} />
-              <div className="kv-table">
-                {portfolio.map((h) => {
-                  const native = Number(latest?.portfolioValues?.[h.id]) || 0;
-                  return (
-                    <div className="kv" key={h.id}>
-                      <span>
-                        {h.product}{' '}
-                        {!h.illiquid && (
-                          <span className="tag" style={{ borderColor: RISK_COLORS[h.risk], color: RISK_COLORS[h.risk] }}>{h.risk}</span>
-                        )}
-                        {h.illiquid && <span className="tag" style={{ borderColor: '#7A8699', color: '#7A8699' }}>Illiquid</span>}
-                      </span>
-                      <span className="mono">
-                        {fmtD(native * rateFor(h.currency, latest?.fxRates, fxRates, baseCurrency))}
-                        {showSecondaryCurrency && h.currency !== displayCurrency && <span className="sub-currency"> {h.currency} {native.toLocaleString()}</span>}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="card">
               <div className="card-title">Your monthly cash flow</div>
               <div className="stat-row">
                 <div className="stat-card">
@@ -1910,6 +1870,31 @@ export default function App() {
                 </div>
               </div>
             )}
+
+            <div className="card">
+              <div className="card-title">Your investments</div>
+              <RiskBar breakdown={riskNow} total={liquidPortNow} currency={baseCurrency} fmtDisplay={fmtD} />
+              <div className="kv-table">
+                {portfolio.map((h) => {
+                  const native = Number(latest?.portfolioValues?.[h.id]) || 0;
+                  return (
+                    <div className="kv" key={h.id}>
+                      <span>
+                        {h.product}{' '}
+                        {!h.illiquid && (
+                          <span className="tag" style={{ borderColor: RISK_COLORS[h.risk], color: RISK_COLORS[h.risk] }}>{h.risk}</span>
+                        )}
+                        {h.illiquid && <span className="tag" style={{ borderColor: '#7A8699', color: '#7A8699' }}>Illiquid</span>}
+                      </span>
+                      <span className="mono">
+                        {fmtD(native * rateFor(h.currency, latest?.fxRates, fxRates, baseCurrency))}
+                        {showSecondaryCurrency && h.currency !== displayCurrency && <span className="sub-currency"> {h.currency} {native.toLocaleString()}</span>}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
             <button className="btn-primary" onClick={() => { setTab('chat'); sendChat(INTERVIEW_PROMPT); }}>
               <Sparkles size={15} /> Start interview (10 questions)
