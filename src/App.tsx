@@ -1156,12 +1156,15 @@ export default function App() {
   // "Nice numbers" tick generator so gridlines land on clean, evenly-spaced
   // values (e.g. 700k / 800k / 900k / 1000k) instead of Recharts' default
   // behaviour of forcing the raw domain max in as an uneven final tick.
+  // The top of the domain is capped close to the actual highest value
+  // (small pad only) rather than rounded up to the next full step, so there
+  // isn't a large empty gap above the chart.
   const { domain: projectionDomain, ticks: projectionTicks } = projectionData ? (() => {
     const lows = projectionData.map((p) => p.lower);
     const highs = projectionData.map((p) => p.upper);
     const rawMin = Math.min(...lows), rawMax = Math.max(...highs);
     const pad = (rawMax - rawMin) * 0.08;
-    const min = Math.max(0, rawMin - pad), max = rawMax + pad;
+    const min = Math.max(0, rawMin - pad);
     const niceNum = (range, round) => {
       const exp = Math.floor(Math.log10(range));
       const frac = range / Math.pow(10, exp);
@@ -1171,13 +1174,31 @@ export default function App() {
       return niceFrac * Math.pow(10, exp);
     };
     const TICK_COUNT = 5;
-    const step = niceNum((max - min) / (TICK_COUNT - 1), true);
+    const step = niceNum((rawMax + pad - min) / (TICK_COUNT - 1), true);
     const niceMin = Math.floor(min / step) * step;
-    const niceMax = Math.ceil(max / step) * step;
+    const domainMax = rawMax + (rawMax - rawMin) * 0.03; // small headroom only, no step-rounding
     const ticks = [];
-    for (let v = niceMin; v <= niceMax + step * 0.001; v += step) ticks.push(Math.round(v));
-    return { domain: [niceMin, niceMax], ticks };
+    for (let v = niceMin; v <= domainMax; v += step) ticks.push(Math.round(v));
+    return { domain: [niceMin, domainMax], ticks };
   })() : { domain: [0, 0], ticks: [] };
+
+  const projectionYearTicks = projectionData ? projectionData.filter((p) => p.label).map((p) => p.month) : [];
+  const ProjectionTooltip = ({ active, payload }) => {
+    if (!active || !payload || !payload.length) return null;
+    const byKey = Object.fromEntries(payload.map((p) => [p.dataKey, p.value]));
+    const rows = [
+      byKey.upper !== undefined && { label: 'Upper range', value: byKey.upper },
+      byKey.mid !== undefined && { label: 'Estimate', value: byKey.mid },
+      byKey.lower !== undefined && { label: 'Lower range', value: byKey.lower },
+    ].filter(Boolean);
+    return (
+      <div style={{ background: '#fff', border: '1px solid #E4DCC8', borderRadius: 4, padding: '8px 12px', fontFamily: 'IBM Plex Sans', fontSize: 12 }}>
+        {rows.map((r) => (
+          <div key={r.label} style={{ color: r.label === 'Estimate' ? '#C9A24A' : '#5A6677' }}>{r.label}: {fmtD(r.value)}</div>
+        ))}
+      </div>
+    );
+  };
 
   const cfoScore = calcCFOScore(cashNow, totalIn, totalOut, goals, liquidPortNow);
   const cfoScoreInsight = cfoScore !== null
@@ -1749,16 +1770,9 @@ export default function App() {
                 <ResponsiveContainer width="100%" height={180}>
                   <ComposedChart data={projectionData} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke="#E4DCC8" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" interval={0} />
+                    <XAxis dataKey="month" type="number" domain={[0, PROJECTION_MONTHS]} ticks={projectionYearTicks} tickFormatter={(m) => { const pt = projectionData.find((p) => p.month === m); return pt ? pt.label : ''; }} tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" />
                     <YAxis domain={projectionDomain} ticks={projectionTicks} allowDataOverflow tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => { const rate = fxRates?.[displayCurrency] || 1; return `${((v / rate) / 1000).toFixed(0)}k`; }} width={48} />
-                    <Tooltip
-                      contentStyle={{ fontFamily: 'IBM Plex Sans', fontSize: 12, borderRadius: 4 }}
-                      formatter={(value, name) => {
-                        if (name === 'lowerBandHeight' || name === 'upperBandHeight') return null;
-                        const label = name === 'mid' ? 'Estimate' : name === 'upper' ? 'Upper range' : name === 'lower' ? 'Lower range' : name;
-                        return [fmtD(value), label];
-                      }}
-                    />
+                    <Tooltip content={<ProjectionTooltip />} />
                     <Area type="monotone" dataKey="lower" stackId="band" stroke="none" fill="transparent" />
                     <Area type="monotone" dataKey="lowerBandHeight" stackId="band" stroke="none" fill="#8A93A3" fillOpacity={0.35} />
                     <Area type="monotone" dataKey="upperBandHeight" stackId="band" stroke="none" fill="#4F8C6E" fillOpacity={0.35} />
