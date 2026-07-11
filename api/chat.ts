@@ -6,6 +6,13 @@
 //   - 100 messages per calendar month
 //   - 20 messages per rolling 60 seconds (burst protection)
 //
+// Reliability: the two limit checks run in parallel (not one after another)
+// and each has a short timeout. If Supabase is slow or unreachable for any
+// reason, the message is let through rather than blocked ("fail open") —
+// a brief Supabase hiccup should never break the CFO chat for the user.
+// Logging the message (for future limit checks) happens in the background
+// and does not delay the reply from Claude.
+//
 // Set these in Vercel Project Settings -> Environment Variables:
 //   ANTHROPIC_API_KEY
 //   SUPABASE_URL              (same value as VITE_SUPABASE_URL)
@@ -16,19 +23,44 @@ export const config = { runtime: 'edge' };
 const MONTHLY_LIMIT = 100;
 const BURST_LIMIT = 20;
 const BURST_WINDOW_SECONDS = 60;
+const CHECK_TIMEOUT_MS = 2500; // how long we'll wait on Supabase before giving up and letting the message through
 
-async function supabaseFetch(path: string, init: RequestInit) {
+async function supabaseFetch(path: string, init: RequestInit, timeoutMs = CHECK_TIMEOUT_MS) {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  return fetch(`${url}${path}`, {
-    ...init,
-    headers: {
-      ...init.headers,
-      apikey: key!,
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-    },
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(`${url}${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        ...init.headers,
+        apikey: key!,
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+      },
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Returns the row count for a rate-limit check, or null if the check
+// couldn't be completed (network issue, timeout, Supabase error, etc).
+// null is treated by the caller as "unknown — let it through".
+async function getUsageCount(userId: string, sinceIso: string): Promise<number | null> {
+  try {
+    const res = await supabaseFetch(
+      `/rest/v1/chat_usage?user_id=eq.${userId}&created_at=gte.${sinceIso}&select=id`,
+      { method: 'GET', headers: { Prefer: 'count=exact' } }
+    );
+    if (!res.ok) return null;
+    const count = parseInt(res.headers.get('content-range')?.split('/')[1] || '', 10);
+    return Number.isFinite(count) ? count : null;
+  } catch {
+    return null; // timeout, network error, etc — fail open
+  }
 }
 
 export default async function handler(req: Request): Promise<Response> {
@@ -46,12 +78,6 @@ export default async function handler(req: Request): Promise<Response> {
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return new Response(
-      JSON.stringify({ error: 'Server is missing Supabase config for rate limiting.' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
 
   const bodyJson = await req.json();
   const userId = bodyJson.user_id;
@@ -62,41 +88,40 @@ export default async function handler(req: Request): Promise<Response> {
     });
   }
 
-  // --- Burst check: how many messages in the last 60 seconds? ---
-  const burstSince = new Date(Date.now() - BURST_WINDOW_SECONDS * 1000).toISOString();
-  const burstRes = await supabaseFetch(
-    `/rest/v1/chat_usage?user_id=eq.${userId}&created_at=gte.${burstSince}&select=id`,
-    { method: 'GET', headers: { Prefer: 'count=exact' } }
-  );
-  const burstCount = parseInt(burstRes.headers.get('content-range')?.split('/')[1] || '0', 10);
-  if (burstCount >= BURST_LIMIT) {
-    return new Response(
-      JSON.stringify({ error: 'rate_limited', reason: 'burst', message: "You're sending messages too quickly. Please wait a moment and try again." }),
-      { status: 429, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
+  // Rate limiting is best-effort: if Supabase isn't configured or is having
+  // a moment, we skip straight to Claude rather than blocking the user.
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const now = new Date();
+    const burstSince = new Date(now.getTime() - BURST_WINDOW_SECONDS * 1000).toISOString();
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
 
-  // --- Monthly check: how many messages since the 1st of this month? ---
-  const now = new Date();
-  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-  const monthRes = await supabaseFetch(
-    `/rest/v1/chat_usage?user_id=eq.${userId}&created_at=gte.${monthStart}&select=id`,
-    { method: 'GET', headers: { Prefer: 'count=exact' } }
-  );
-  const monthCount = parseInt(monthRes.headers.get('content-range')?.split('/')[1] || '0', 10);
-  if (monthCount >= MONTHLY_LIMIT) {
-    return new Response(
-      JSON.stringify({ error: 'rate_limited', reason: 'monthly', message: "You've reached your monthly message limit. It will reset at the start of next month." }),
-      { status: 429, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
+    // Both checks run at the same time instead of one after another.
+    const [burstCount, monthCount] = await Promise.all([
+      getUsageCount(userId, burstSince),
+      getUsageCount(userId, monthStart),
+    ]);
 
-  // --- Log this message (count only — no chat content stored) ---
-  await supabaseFetch('/rest/v1/chat_usage', {
-    method: 'POST',
-    headers: { Prefer: 'return=minimal' },
-    body: JSON.stringify({ user_id: userId }),
-  });
+    if (burstCount !== null && burstCount >= BURST_LIMIT) {
+      return new Response(
+        JSON.stringify({ error: 'rate_limited', reason: 'burst', message: "You're sending messages too quickly. Please wait a moment and try again." }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    if (monthCount !== null && monthCount >= MONTHLY_LIMIT) {
+      return new Response(
+        JSON.stringify({ error: 'rate_limited', reason: 'monthly', message: "You've reached your monthly message limit. It will reset at the start of next month." }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Log this message in the background — we do NOT wait for this to
+    // finish before talking to Claude, so it never adds to response time.
+    supabaseFetch('/rest/v1/chat_usage', {
+      method: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ user_id: userId }),
+    }).catch(() => { /* best-effort logging — a missed log just means a slightly generous count next time */ });
+  }
 
   // --- Forward to Anthropic (strip user_id first, Anthropic doesn't need it) ---
   const { user_id, ...anthropicBody } = bodyJson;
