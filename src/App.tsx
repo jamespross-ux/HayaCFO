@@ -1732,7 +1732,7 @@ export default function App() {
                   <ComposedChart data={projectionData} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke="#E4DCC8" vertical={false} />
                     <XAxis dataKey="label" tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" interval={0} />
-                    <YAxis domain={projectionDomain} tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => { const rate = fxRates?.[displayCurrency] || 1; return `${((v / rate) / 1000).toFixed(0)}k`; }} width={48} />
+                    <YAxis domain={projectionDomain} allowDataOverflow tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => { const rate = fxRates?.[displayCurrency] || 1; return `${((v / rate) / 1000).toFixed(0)}k`; }} width={48} />
                     <Tooltip
                       contentStyle={{ fontFamily: 'IBM Plex Sans', fontSize: 12, borderRadius: 4 }}
                       formatter={(value, name) => {
