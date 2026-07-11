@@ -1671,7 +1671,7 @@ export default function App() {
         </div>
 
         <div style={{ filter: showFigures ? 'none' : 'blur(8px)', userSelect: showFigures ? 'auto' : 'none', transition: 'filter 0.2s' }}>
-          <div className="masthead-label">Liquid net worth</div>
+          <div className="masthead-label">Your liquid net worth</div>
           <div className="masthead-hero">{fmtD(liquidNwNow)}</div>
           <div className="masthead-sub-row">
             {showSecondaryCurrency && <span className="masthead-secondary">{fmt(liquidNwNow, baseCurrency)}</span>}
@@ -1771,7 +1771,7 @@ export default function App() {
 
             {projectionData && (
               <div className="card">
-                <div className="card-title">Total net worth projection · next 5 years</div>
+                <div className="card-title">Your 5-year net worth projection</div>
                 <ResponsiveContainer width="100%" height={180}>
                   <ComposedChart data={projectionData} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke="#E4DCC8" vertical={false} />
@@ -1829,7 +1829,7 @@ export default function App() {
             </div>
 
             <div className="card">
-              <div className="card-title">Portfolio — risk allocation</div>
+              <div className="card-title">Your investments</div>
               <RiskBar breakdown={riskNow} total={liquidPortNow} currency={baseCurrency} fmtDisplay={fmtD} />
               <div className="kv-table">
                 {portfolio.map((h) => {
@@ -1854,7 +1854,7 @@ export default function App() {
             </div>
 
             <div className="card">
-              <div className="card-title">Recurring monthly cash flow</div>
+              <div className="card-title">Your monthly cash flow</div>
               <div className="stat-row">
                 <div className="stat-card">
                   <div className="stat-label">Income</div>
@@ -1902,7 +1902,7 @@ export default function App() {
 
             {goals.length > 0 && (
               <div className="card">
-                <div className="card-title">Goals</div>
+                <div className="card-title">Your goals</div>
                 <div className="dial-row">
                   {goals.map((g) => (
                     <WatchDial key={g.id} percent={g.target > 0 ? (g.current / g.target) * 100 : 0} label={g.name} sub={`${fmt(g.current, baseCurrency)} / ${fmt(g.target, baseCurrency)}`} accent="#C9A24A" />
