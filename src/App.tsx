@@ -1153,13 +1153,31 @@ export default function App() {
   const totalOut = outflowItems.reduce((s, r) => s + monthlyInBase(r, fxRates, baseCurrency), 0);
 
   const projectionData = latest ? projectNetWorth(cashNow, riskNow, totalIn, totalOut, illiquidNow) : null;
-  const projectionDomain = projectionData ? (() => {
+  // "Nice numbers" tick generator so gridlines land on clean, evenly-spaced
+  // values (e.g. 700k / 800k / 900k / 1000k) instead of Recharts' default
+  // behaviour of forcing the raw domain max in as an uneven final tick.
+  const { domain: projectionDomain, ticks: projectionTicks } = projectionData ? (() => {
     const lows = projectionData.map((p) => p.lower);
     const highs = projectionData.map((p) => p.upper);
-    const min = Math.min(...lows), max = Math.max(...highs);
-    const pad = (max - min) * 0.08;
-    return [Math.max(0, Math.floor(min - pad)), Math.ceil(max + pad)];
-  })() : [0, 0];
+    const rawMin = Math.min(...lows), rawMax = Math.max(...highs);
+    const pad = (rawMax - rawMin) * 0.08;
+    const min = Math.max(0, rawMin - pad), max = rawMax + pad;
+    const niceNum = (range, round) => {
+      const exp = Math.floor(Math.log10(range));
+      const frac = range / Math.pow(10, exp);
+      let niceFrac;
+      if (round) niceFrac = frac < 1.5 ? 1 : frac < 3 ? 2 : frac < 7 ? 5 : 10;
+      else niceFrac = frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 5 ? 5 : 10;
+      return niceFrac * Math.pow(10, exp);
+    };
+    const TICK_COUNT = 5;
+    const step = niceNum((max - min) / (TICK_COUNT - 1), true);
+    const niceMin = Math.floor(min / step) * step;
+    const niceMax = Math.ceil(max / step) * step;
+    const ticks = [];
+    for (let v = niceMin; v <= niceMax + step * 0.001; v += step) ticks.push(Math.round(v));
+    return { domain: [niceMin, niceMax], ticks };
+  })() : { domain: [0, 0], ticks: [] };
 
   const cfoScore = calcCFOScore(cashNow, totalIn, totalOut, goals, liquidPortNow);
   const cfoScoreInsight = cfoScore !== null
@@ -1732,7 +1750,7 @@ export default function App() {
                   <ComposedChart data={projectionData} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke="#E4DCC8" vertical={false} />
                     <XAxis dataKey="label" tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" interval={0} />
-                    <YAxis domain={projectionDomain} allowDataOverflow tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => { const rate = fxRates?.[displayCurrency] || 1; return `${((v / rate) / 1000).toFixed(0)}k`; }} width={48} />
+                    <YAxis domain={projectionDomain} ticks={projectionTicks} allowDataOverflow tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => { const rate = fxRates?.[displayCurrency] || 1; return `${((v / rate) / 1000).toFixed(0)}k`; }} width={48} />
                     <Tooltip
                       contentStyle={{ fontFamily: 'IBM Plex Sans', fontSize: 12, borderRadius: 4 }}
                       formatter={(value, name) => {
