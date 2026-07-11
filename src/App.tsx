@@ -1153,6 +1153,13 @@ export default function App() {
   const totalOut = outflowItems.reduce((s, r) => s + monthlyInBase(r, fxRates, baseCurrency), 0);
 
   const projectionData = latest ? projectNetWorth(cashNow, riskNow, totalIn, totalOut, illiquidNow) : null;
+  const projectionDomain = projectionData ? (() => {
+    const lows = projectionData.map((p) => p.lower);
+    const highs = projectionData.map((p) => p.upper);
+    const min = Math.min(...lows), max = Math.max(...highs);
+    const pad = (max - min) * 0.08;
+    return [Math.max(0, Math.floor(min - pad)), Math.ceil(max + pad)];
+  })() : [0, 0];
 
   const cfoScore = calcCFOScore(cashNow, totalIn, totalOut, goals, liquidPortNow);
   const cfoScoreInsight = cfoScore !== null
@@ -1725,7 +1732,7 @@ export default function App() {
                   <ComposedChart data={projectionData} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke="#E4DCC8" vertical={false} />
                     <XAxis dataKey="label" tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" interval={0} />
-                    <YAxis tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => { const rate = fxRates?.[displayCurrency] || 1; return `${((v / rate) / 1000).toFixed(0)}k`; }} width={48} />
+                    <YAxis domain={projectionDomain} tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => { const rate = fxRates?.[displayCurrency] || 1; return `${((v / rate) / 1000).toFixed(0)}k`; }} width={48} />
                     <Tooltip
                       contentStyle={{ fontFamily: 'IBM Plex Sans', fontSize: 12, borderRadius: 4 }}
                       formatter={(value, name) => {
@@ -1735,8 +1742,8 @@ export default function App() {
                       }}
                     />
                     <Area type="monotone" dataKey="lower" stackId="band" stroke="none" fill="transparent" />
-                    <Area type="monotone" dataKey="lowerBandHeight" stackId="band" stroke="none" fill="#7A8699" fillOpacity={0.18} />
-                    <Area type="monotone" dataKey="upperBandHeight" stackId="band" stroke="none" fill="#6B9080" fillOpacity={0.18} />
+                    <Area type="monotone" dataKey="lowerBandHeight" stackId="band" stroke="none" fill="#8A93A3" fillOpacity={0.35} />
+                    <Area type="monotone" dataKey="upperBandHeight" stackId="band" stroke="none" fill="#4F8C6E" fillOpacity={0.35} />
                     <Line type="monotone" dataKey="mid" stroke="#C9A24A" strokeWidth={2.5} dot={false} />
                     <Line type="monotone" dataKey="upper" stroke="#C9A24A" strokeWidth={0} dot={false} legendType="none" />
                   </ComposedChart>
@@ -1756,7 +1763,7 @@ export default function App() {
 
             {sortedSnaps.length > 1 && (
               <div className="card">
-                <div className="card-title">Liquid net worth over time</div>
+                <div className="card-title">Liquid net worth (cash + investments)</div>
                 <ResponsiveContainer width="100%" height={160}>
                   <LineChart data={chartData}>
                     <CartesianGrid stroke="#E4DCC8" vertical={false} />
