@@ -750,6 +750,8 @@ export default function App() {
   const [updateForm, setUpdateForm] = useState(null);
   const [lifeNoteDraft, setLifeNoteDraft] = useState('');
   const [showAllLifeLog, setShowAllLifeLog] = useState(false);
+  const [showAllRecurringDash, setShowAllRecurringDash] = useState(false);
+  const [showAllPortfolioDash, setShowAllPortfolioDash] = useState(false);
   const [exportCopied, setExportCopied] = useState(false);
   const [importText, setImportText] = useState('');
   const [importStatus, setImportStatus] = useState(null);
@@ -1850,13 +1852,18 @@ export default function App() {
                 </>
               )}
               <div className="recurring-list">
-                {recurringItems.map((r) => (
+                {(showAllRecurringDash ? recurringItems : recurringItems.slice(0, 5)).map((r) => (
                   <div className="recurring-row" key={r.id}>
                     <span className={`flow-dot ${r.direction === 'in' ? 'flow-in' : 'flow-out'}`} />
                     <span className="recurring-name">{r.name}</span>
                     <span className="mono recurring-amount">{r.currency} {Number(r.amount).toLocaleString()}/{r.frequency}</span>
                   </div>
                 ))}
+                {recurringItems.length > 5 && (
+                  <button className="btn-secondary" onClick={() => setShowAllRecurringDash((v) => !v)} style={{ marginTop: 6, fontSize: 12 }}>
+                    {showAllRecurringDash ? 'Show less' : `Show all ${recurringItems.length} items`}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1888,7 +1895,7 @@ export default function App() {
               <div className="card-title">Your investments</div>
               <RiskBar breakdown={riskNow} total={liquidPortNow} currency={baseCurrency} fmtDisplay={fmtD} />
               <div className="kv-table">
-                {portfolio.map((h) => {
+                {(showAllPortfolioDash ? portfolio : portfolio.slice(0, 5)).map((h) => {
                   const native = Number(latest?.portfolioValues?.[h.id]) || 0;
                   return (
                     <div className="kv" key={h.id}>
@@ -1906,6 +1913,11 @@ export default function App() {
                     </div>
                   );
                 })}
+                {portfolio.length > 5 && (
+                  <button className="btn-secondary" onClick={() => setShowAllPortfolioDash((v) => !v)} style={{ marginTop: 6, fontSize: 12 }}>
+                    {showAllPortfolioDash ? 'Show less' : `Show all ${portfolio.length} holdings`}
+                  </button>
+                )}
               </div>
             </div>
 
