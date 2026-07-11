@@ -1863,11 +1863,24 @@ export default function App() {
             {goals.length > 0 && (
               <div className="card">
                 <div className="card-title">Your goals</div>
-                <div className="dial-row">
-                  {goals.map((g) => (
-                    <WatchDial key={g.id} percent={g.target > 0 ? (g.current / g.target) * 100 : 0} label={g.name} sub={`${fmt(g.current, baseCurrency)} / ${fmt(g.target, baseCurrency)}`} accent="#C9A24A" />
-                  ))}
-                </div>
+                {goals.map((g, i) => {
+                  const pct = g.target > 0 ? (g.current / g.target) * 100 : 0;
+                  const barColor = pct < 30 ? '#8A93A3' : pct < 80 ? '#4A7FA8' : '#4F8C6E';
+                  return (
+                    <div key={g.id} style={{ marginBottom: i === goals.length - 1 ? 0 : 20 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 8 }}>
+                        <div>
+                          <div style={{ fontSize: 13, color: '#101C2E', marginBottom: 2 }}>{g.name}</div>
+                          <div className="mono" style={{ fontSize: 11, color: '#7A8699' }}>{fmt(g.current, baseCurrency)} of {fmt(g.target, baseCurrency)}</div>
+                        </div>
+                        <div style={{ fontFamily: "'IBM Plex Serif', serif", fontWeight: 600, fontSize: 22, color: barColor }}>{Math.round(pct)}%</div>
+                      </div>
+                      <div style={{ background: '#EDE8DF', height: 10, borderRadius: 5, overflow: 'hidden' }}>
+                        <div style={{ background: barColor, height: '100%', width: `${Math.min(Math.max(pct, 0), 100)}%`, borderRadius: 5 }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
