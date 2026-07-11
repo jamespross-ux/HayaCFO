@@ -1784,7 +1784,7 @@ export default function App() {
                   className="score-popover-cta"
                   style={{ marginTop: 10 }}
                   onClick={() => {
-                    setChatInput('Explain my net worth projection and what could make it wrong.');
+                    setChatInput('Briefly explain my 5 year total net worth projection.');
                     setTab('chat');
                   }}
                 >
@@ -1799,7 +1799,7 @@ export default function App() {
                 <ResponsiveContainer width="100%" height={160}>
                   <LineChart data={chartData}>
                     <CartesianGrid stroke="#E4DCC8" vertical={false} />
-                    <XAxis dataKey="date" tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" />
+                    <XAxis dataKey="date" interval={chartData.length > 6 ? Math.ceil(chartData.length / 6) - 1 : 0} tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" />
                     <YAxis tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => { const rate = fxRates?.[displayCurrency] || 1; return `${((v / rate) / 1000).toFixed(0)}k`; }} width={48} />
                     <Tooltip formatter={(v) => fmtD(v)} contentStyle={{ fontFamily: 'IBM Plex Sans', fontSize: 12, borderRadius: 4 }} />
                     <Line type="monotone" dataKey="netWorth" stroke="#C9A24A" strokeWidth={2.5} dot={{ r: 3 }} />
