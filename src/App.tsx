@@ -1776,7 +1776,7 @@ export default function App() {
                   <ComposedChart data={projectionData} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke="#E4DCC8" vertical={false} />
                     <XAxis dataKey="month" type="number" domain={[0, PROJECTION_MONTHS]} ticks={projectionYearTicks} tickFormatter={(m) => { const pt = projectionData.find((p) => p.month === m); return pt ? pt.label : ''; }} tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" />
-                    <YAxis domain={projectionDomain} ticks={projectionTicks} allowDataOverflow tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => { const rate = fxRates?.[displayCurrency] || 1; return `${((v / rate) / 1000).toFixed(0)}k`; }} width={48} />
+                    <YAxis domain={projectionDomain} ticks={projectionTicks} allowDataOverflow tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => { const rate = fxRates?.[displayCurrency] || 1; const symbol = CURRENCY_SYMBOLS[displayCurrency] || ''; const val = v / rate; return Math.abs(val) >= 1000000 ? `${symbol}${(val / 1000000).toFixed(1)}m` : `${symbol}${(val / 1000).toFixed(0)}k`; }} width={62} />
                     <Tooltip content={<ProjectionTooltip />} />
                     <Area type="monotone" dataKey="lower" stackId="band" stroke="none" fill="transparent" />
                     <Area type="monotone" dataKey="lowerBandHeight" stackId="band" stroke="none" fill="#8A93A3" fillOpacity={0.35} />
