@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  ComposedChart, Area,
 } from 'recharts';
 import {
   LayoutDashboard, MessageCircle, NotebookPen, Settings2, Send, Plus, Trash2,
@@ -126,6 +127,68 @@ const riskBreakdown = (snap, portfolio, dataFx, base) => {
     result[h.risk] = (result[h.risk] || 0) + val;
   });
   return result;
+};
+
+// ── Net Worth Projection ────────────────────────────────────────────────────
+// Projects liquid net worth (cash + liquid portfolio) forward 5 years.
+// Mid line: each risk bucket (Low/Balanced/High) compounds at its own assumed
+// annual return. Upper/lower band: same total liquid portfolio, but assumed to
+// grow entirely at the High (12%) or Low (3%) rate for the whole period.
+// Cash grows only from monthly surplus (income - outflows), no interest assumed.
+// Income is assumed to grow 4%/yr (salary growth), outflows 3%/yr (inflation).
+// Illiquid assets (property, pensions) are excluded, consistent with the
+// existing "liquid net worth" figure used elsewhere on the dashboard.
+const PROJECTION_MONTHS = 60;
+const PROJECTION_RATES = { Low: 0.03, Balanced: 0.07, High: 0.12 };
+const SALARY_GROWTH = 0.04;
+const SPENDING_GROWTH = 0.03;
+const monthlyRate = (annual) => Math.pow(1 + annual, 1 / 12) - 1;
+
+const projectNetWorth = (cashNow, riskNow, totalIn, totalOut) => {
+  const buckets = { mid: { ...riskNow }, upper: null, lower: null };
+  const totalPortfolioNow = (riskNow.Low || 0) + (riskNow.Balanced || 0) + (riskNow.High || 0);
+  let cashMid = cashNow, cashUpper = cashNow, cashLower = cashNow;
+  let portMid = { ...riskNow };
+  let portUpper = totalPortfolioNow;
+  let portLower = totalPortfolioNow;
+
+  const midRates = { Low: monthlyRate(PROJECTION_RATES.Low), Balanced: monthlyRate(PROJECTION_RATES.Balanced), High: monthlyRate(PROJECTION_RATES.High) };
+  const upperRate = monthlyRate(PROJECTION_RATES.High);
+  const lowerRate = monthlyRate(PROJECTION_RATES.Low);
+
+  const points = [];
+  const today = new Date();
+
+  for (let m = 0; m <= PROJECTION_MONTHS; m++) {
+    if (m > 0) {
+      const yearIdx = Math.floor((m - 1) / 12);
+      const monthlyIncome = totalIn * Math.pow(1 + SALARY_GROWTH, yearIdx);
+      const monthlyOutflow = totalOut * Math.pow(1 + SPENDING_GROWTH, yearIdx);
+      const surplus = monthlyIncome - monthlyOutflow;
+      cashMid += surplus; cashUpper += surplus; cashLower += surplus;
+
+      portMid.Low = (portMid.Low || 0) * (1 + midRates.Low);
+      portMid.Balanced = (portMid.Balanced || 0) * (1 + midRates.Balanced);
+      portMid.High = (portMid.High || 0) * (1 + midRates.High);
+      portUpper *= (1 + upperRate);
+      portLower *= (1 + lowerRate);
+    }
+    const portMidTotal = (portMid.Low || 0) + (portMid.Balanced || 0) + (portMid.High || 0);
+    const mid = cashMid + portMidTotal;
+    const upper = cashUpper + portUpper;
+    const lower = cashLower + portLower;
+    const d = new Date(today.getFullYear(), today.getMonth() + m, 1);
+    points.push({
+      month: m,
+      label: m % 12 === 0 ? String(d.getFullYear()) : '',
+      mid: Math.round(mid),
+      upper: Math.round(Math.max(upper, mid)),
+      lower: Math.round(Math.min(lower, mid)),
+    });
+  }
+  // bandHeight is used to stack an Area on top of "lower" so the shaded
+  // region spans exactly [lower, upper] regardless of chart scale.
+  return points.map((p) => ({ ...p, bandHeight: p.upper - p.lower }));
 };
 
 const monthlyInBase = (item, dataFx, base) => {
@@ -421,6 +484,20 @@ function buildSystemPrompt(data) {
     lines.push('');
     lines.push('=== CFO SCORE ===');
     lines.push(`The CFO Score is not yet available. It is a financial health score out of 100, calculated across four dimensions: monthly surplus rate (35pts), liquidity in months of outflows (30pts), goals progress (20pts), and portfolio size relative to income (15pts). It requires both income and outflow items to be entered before it can be calculated. If the user asks why they don't have a score, explain this clearly and encourage them to add their recurring income and outflows in Setup.`);
+  }
+
+  // Net worth projection — dashboard chart the CFO should be able to explain and caveat
+  const projRisk = latestSnap ? riskBreakdown(latestSnap, portfolio, fxRates, baseCurrency) : { Low: 0, Balanced: 0, High: 0 };
+  if (latestSnap) {
+    const projected = projectNetWorth(cNow, projRisk, tIn, tOut);
+    const final = projected[projected.length - 1];
+    lines.push('');
+    lines.push('=== NET WORTH PROJECTION (dashboard chart) ===');
+    lines.push(`The dashboard shows a 5-year liquid net worth projection (cash + liquid portfolio; property/pension excluded, same as the headline liquid net worth figure).`);
+    lines.push(`Methodology: portfolio holdings grow at assumed annual rates by risk bucket — Low 3%, Balanced 7%, High 12% — compounded monthly, each bucket using its own actual current value (Low ${fmt(projRisk.Low, baseCurrency)}, Balanced ${fmt(projRisk.Balanced, baseCurrency)}, High ${fmt(projRisk.High, baseCurrency)}). Monthly income is assumed to grow 4%/year (salary growth), monthly outflows 3%/year (inflation), and the resulting surplus each month adds to cash with no interest assumed on cash itself.`);
+    lines.push(`The shaded range is not a statistical confidence interval — it's a simple best-case/worst-case: the upper line assumes the ENTIRE liquid portfolio grows at the High rate (12%) for all 5 years, the lower line assumes it ALL grows at the Low rate (3%) for all 5 years. The middle line (each bucket at its own rate) is the more realistic estimate.`);
+    lines.push(`In 5 years this projects to roughly ${fmt(final.mid, baseCurrency)} (estimate), ranging from ${fmt(final.lower, baseCurrency)} (worst case) to ${fmt(final.upper, baseCurrency)} (best case).`);
+    lines.push(`When asked about this chart, be direct about its limits: it assumes steady, uninterrupted growth in income, spending, and markets, which real life rarely delivers — job changes, market drawdowns, one-off expenses, or life events (a move, a career gap) would all knock it off track. It's a planning estimate, not a forecast or guarantee. If the user's situation includes anything you already know that would materially affect this (e.g. a known income gap, a big planned expense), point that out specifically rather than giving a generic disclaimer.`);
   }
 
   return lines.join('\n');
@@ -1082,6 +1159,8 @@ export default function App() {
   const totalIn = incomeItems.reduce((s, r) => s + monthlyInBase(r, fxRates, baseCurrency), 0);
   const totalOut = outflowItems.reduce((s, r) => s + monthlyInBase(r, fxRates, baseCurrency), 0);
 
+  const projectionData = latest ? projectNetWorth(cashNow, riskNow, totalIn, totalOut) : null;
+
   const cfoScore = calcCFOScore(cashNow, totalIn, totalOut, goals, liquidPortNow);
   const cfoScoreInsight = cfoScore !== null
     ? getCFOScoreInsight(cashNow, totalIn, totalOut, goals, liquidPortNow, cfoScore, displayCurrency, fxRates)
@@ -1658,6 +1737,41 @@ export default function App() {
                     <Line type="monotone" dataKey="netWorth" stroke="#C9A24A" strokeWidth={2.5} dot={{ r: 3 }} />
                   </LineChart>
                 </ResponsiveContainer>
+              </div>
+            )}
+
+            {projectionData && (
+              <div className="card">
+                <div className="card-title">Net worth projection · next 5 years</div>
+                <ResponsiveContainer width="100%" height={180}>
+                  <ComposedChart data={projectionData}>
+                    <CartesianGrid stroke="#E4DCC8" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" interval={0} />
+                    <YAxis tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => { const rate = fxRates?.[displayCurrency] || 1; return `${((v / rate) / 1000).toFixed(0)}k`; }} width={48} />
+                    <Tooltip
+                      contentStyle={{ fontFamily: 'IBM Plex Sans', fontSize: 12, borderRadius: 4 }}
+                      formatter={(value, name) => {
+                        if (name === 'lower' || name === 'bandHeight') return null;
+                        const label = name === 'mid' ? 'Estimate' : name === 'upper' ? 'Best case' : name;
+                        return [fmtD(value), label];
+                      }}
+                    />
+                    <Area type="monotone" dataKey="lower" stackId="band" stroke="none" fill="transparent" />
+                    <Area type="monotone" dataKey="bandHeight" stackId="band" stroke="none" fill="#C9A24A" fillOpacity={0.15} />
+                    <Line type="monotone" dataKey="mid" stroke="#C9A24A" strokeWidth={2.5} dot={false} />
+                    <Line type="monotone" dataKey="upper" stroke="#C9A24A" strokeWidth={0} dot={false} legendType="none" />
+                  </ComposedChart>
+                </ResponsiveContainer>
+                <button
+                  className="score-popover-cta"
+                  style={{ marginTop: 10 }}
+                  onClick={() => {
+                    setChatInput('Explain my net worth projection and what could make it wrong.');
+                    setTab('chat');
+                  }}
+                >
+                  Ask your CFO →
+                </button>
               </div>
             )}
 
