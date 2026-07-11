@@ -1800,7 +1800,7 @@ export default function App() {
 
             {sortedSnaps.length > 1 && (
               <div className="card">
-                <div className="card-title">Liquid net worth (cash + investments)</div>
+                <div className="card-title">Your liquid net worth (cash + investments)</div>
                 <ResponsiveContainer width="100%" height={160}>
                   <LineChart data={chartData}>
                     <CartesianGrid stroke="#E4DCC8" vertical={false} />
