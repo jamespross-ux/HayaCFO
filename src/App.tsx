@@ -685,6 +685,11 @@ function WatchDial({ percent, label, sub, accent }) {
 }
 
 const RISK_COLORS = { Low: '#5E8C7C', Balanced: '#C9A24A', High: '#BD5B3A' };
+// Colors for the stacked liquid net worth breakdown chart. No legend is shown
+// (purely visual proportions), so these just need to read as distinct bands —
+// "Other" is deliberately muted/light so it visually recedes as the catch-all.
+const HOLDING_BAND_COLORS = ['#C9A24A', '#5E8C7C', '#4A7FA8', '#BD5B3A', '#8A93A3'];
+const HOLDING_OTHER_COLOR = '#DCD6C8';
 
 function RiskBar({ breakdown, total, currency, fmtDisplay }) {
   const order = ['Low', 'Balanced', 'High'];
@@ -1172,6 +1177,38 @@ export default function App() {
     netWorth: liquidNetWorth(s, accounts, portfolio, fxRates, baseCurrency),
   }));
 
+  // ── Liquid net worth breakdown (stacked by top 5 holdings + "Other") ──────
+  // Ranks every liquid item (cash accounts + non-illiquid portfolio holdings)
+  // by its CURRENT value, takes the top 5, and groups everything else into a
+  // single "Other" band. Historical values per item come from each snapshot's
+  // own saved balances/portfolioValues, so this is real history, not estimated.
+  const liquidItems = [
+    ...accounts.filter((a) => a.type !== 'liability').map((a) => ({ id: `acc:${a.id}`, kind: 'account', ref: a })),
+    ...portfolio.filter((h) => !h.illiquid).map((h) => ({ id: `port:${h.id}`, kind: 'portfolio', ref: h })),
+  ];
+  const itemValueAt = (item, snap) => {
+    if (!snap) return 0;
+    const rate = rateFor(item.ref.currency || baseCurrency, snap.fxRates, fxRates, baseCurrency);
+    return item.kind === 'account'
+      ? (Number(snap.balances?.[item.ref.id]) || 0) * rate
+      : (Number(snap.portfolioValues?.[item.ref.id]) || 0) * rate;
+  };
+  const topLiquidItems = [...liquidItems]
+    .sort((a, b) => itemValueAt(b, latest) - itemValueAt(a, latest))
+    .slice(0, 5);
+  const holdingsChartData = sortedSnaps.map((s) => {
+    const row = { date: s.date.slice(5) };
+    let topSum = 0;
+    topLiquidItems.forEach((item, i) => {
+      const val = Math.max(0, itemValueAt(item, s));
+      row[`h${i}`] = val;
+      topSum += val;
+    });
+    row.other = Math.max(0, liquidNetWorth(s, accounts, portfolio, fxRates, baseCurrency) - topSum);
+    row.total = topSum + row.other;
+    return row;
+  });
+
   const recurringChartData = sortedSnaps
     .filter((s) => s.netRecurring)
     .map((s) => ({
@@ -1242,6 +1279,28 @@ export default function App() {
   };
 
   const cfoScore = calcCFOScore(cashNow, totalIn, totalOut, goals, liquidPortNow);
+
+  const LiquidBreakdownTooltip = ({ active, payload, label }) => {
+    if (!active || !payload || !payload.length) return null;
+    const rows = topLiquidItems.map((item, i) => ({
+      name: item.kind === 'account' ? item.ref.name : item.ref.product,
+      value: payload.find((p) => p.dataKey === `h${i}`)?.value || 0,
+      color: HOLDING_BAND_COLORS[i],
+    }));
+    rows.push({ name: 'Other', value: payload.find((p) => p.dataKey === 'other')?.value || 0, color: HOLDING_OTHER_COLOR });
+    return (
+      <div style={{ background: '#fff', border: '1px solid #E4DCC8', borderRadius: 4, padding: '8px 12px', fontFamily: 'IBM Plex Sans', fontSize: 12, minWidth: 160 }}>
+        <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 10, color: '#7A8699', marginBottom: 6 }}>{label}</div>
+        {rows.filter((r) => r.value > 0).sort((a, b) => b.value - a.value).map((r) => (
+          <div key={r.name} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: r.color, display: 'inline-block', flexShrink: 0 }} />
+            <span style={{ flex: 1 }}>{r.name}</span>
+            <span className="mono">{fmtD(r.value)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
   const cfoScoreInsight = cfoScore !== null
     ? getCFOScoreInsight(cashNow, totalIn, totalOut, goals, liquidPortNow, cfoScore, displayCurrency, fxRates)
     : null;
@@ -1852,13 +1911,17 @@ export default function App() {
               <div className="card">
                 <div className="card-title">Your liquid net worth (cash + investments)</div>
                 <ResponsiveContainer width="100%" height={160}>
-                  <LineChart data={chartData}>
+                  <ComposedChart data={holdingsChartData}>
                     <CartesianGrid stroke="#E4DCC8" vertical={false} />
-                    <XAxis dataKey="date" interval={chartData.length > 6 ? Math.ceil(chartData.length / 6) - 1 : 0} tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" />
+                    <XAxis dataKey="date" interval={holdingsChartData.length > 6 ? Math.ceil(holdingsChartData.length / 6) - 1 : 0} tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" />
                     <YAxis tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => { const rate = fxRates?.[displayCurrency] || 1; const symbol = CURRENCY_SYMBOLS[displayCurrency] || ''; const val = v / rate; return Math.abs(val) >= 1000000 ? `${symbol}${(val / 1000000).toFixed(1)}m` : `${symbol}${(val / 1000).toFixed(0)}k`; }} width={62} />
-                    <Tooltip formatter={(v) => fmtD(v)} contentStyle={{ fontFamily: 'IBM Plex Sans', fontSize: 12, borderRadius: 4 }} />
-                    <Line type="monotone" dataKey="netWorth" stroke="#C9A24A" strokeWidth={2.5} dot={{ r: 3 }} />
-                  </LineChart>
+                    <Tooltip content={<LiquidBreakdownTooltip />} />
+                    {topLiquidItems.map((item, i) => (
+                      <Area key={`h${i}`} type="monotone" dataKey={`h${i}`} stackId="liquid" stroke="none" fill={HOLDING_BAND_COLORS[i]} fillOpacity={0.88} />
+                    ))}
+                    <Area type="monotone" dataKey="other" stackId="liquid" stroke="none" fill={HOLDING_OTHER_COLOR} fillOpacity={0.88} />
+                    <Line type="monotone" dataKey="total" stroke="#C9A24A" strokeWidth={2} strokeDasharray="4 3" dot={false} />
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
             )}
