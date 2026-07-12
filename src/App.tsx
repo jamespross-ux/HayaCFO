@@ -95,11 +95,11 @@ const fmtGBPAED = (amountBase, fxRates, displayCurrency = DEFAULT_DISPLAY, displ
 
 const rateFor = (currency, snapFx, dataFx, base) => {
   if (currency === base) return 1;
-  const fromSnap = snapFx?.[currency];
-  if (fromSnap !== undefined && fromSnap !== '' && !Number.isNaN(Number(fromSnap))) return Number(fromSnap);
-  const fromDefaults = dataFx?.[currency];
-  if (fromDefaults !== undefined) return Number(fromDefaults);
-  return 1;
+  const fromSnap = Number(snapFx?.[currency]);
+  if (Number.isFinite(fromSnap) && fromSnap > 0) return fromSnap;
+  const fromDefaults = Number(dataFx?.[currency]);
+  if (Number.isFinite(fromDefaults) && fromDefaults > 0) return fromDefaults;
+  return 1; // never return NaN/Infinity — a bad saved rate should fall back safely, not corrupt every total that uses it
 };
 
 const accountsTotal = (snap, accounts, dataFx, base) =>
@@ -1841,6 +1841,8 @@ export default function App() {
                     <CartesianGrid stroke="#E4DCC8" vertical={false} />
                     <XAxis dataKey="date" interval={chartData.length > 6 ? Math.ceil(chartData.length / 6) - 1 : 0} tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" />
                     <YAxis tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono' }} stroke="#7A8699" tickFormatter={(v) => { const rate = fxRates?.[displayCurrency] || 1; const symbol = CURRENCY_SYMBOLS[displayCurrency] || ''; const val = v / rate; return Math.abs(val) >= 1000000 ? `${symbol}${(val / 1000000).toFixed(1)}m` : `${symbol}${(val / 1000).toFixed(0)}k`; }} width={62} />
+                    <Tooltip formatter={(v) => fmtD(v)} contentStyle={{ fontFamily: 'IBM Plex Sans', fontSize: 12, borderRadius: 4 }} />
+                    <Line type="monotone" dataKey="netWorth" stroke="#C9A24A" strokeWidth={2.5} dot={{ r: 3 }} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
