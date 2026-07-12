@@ -760,6 +760,8 @@ export default function App() {
   const [showScorePopover, setShowScorePopover] = useState(false);
   const [fxLoading, setFxLoading] = useState(false);
   const [fxError, setFxError] = useState(null);
+  const [displayFxLoading, setDisplayFxLoading] = useState(false);
+  const [displayFxError, setDisplayFxError] = useState(null);
   const [attachment, setAttachment] = useState(null);
   const [attachError, setAttachError] = useState(null);
   const [disclaimerChecked, setDisclaimerChecked] = useState(false);
@@ -976,6 +978,37 @@ export default function App() {
       setFxError('Could not fetch rates — check your connection and try again.');
     }
     setFxLoading(false);
+  };
+
+  // Fires the moment the person picks a new display currency in Setup, so the
+  // dashboard is never silently showing a 1:1 "conversion" for a currency that
+  // has never had a real rate fetched. Always fetches fresh (rather than only
+  // when missing) so a stale cached rate also gets corrected. Safe merge only —
+  // spreads the full data object and only adds/updates one key in fxRates,
+  // never replaces accounts/portfolio/goals/life log or any other field.
+  const handleDisplayCurrencyChange = async (newCurrency) => {
+    persist({ ...data, displayCurrency: newCurrency }); // responsive UI immediately
+    if (newCurrency === baseCurrency) return; // no conversion needed, nothing to fetch
+    setDisplayFxLoading(true);
+    setDisplayFxError(null);
+    try {
+      const apiKey = import.meta.env.VITE_EXCHANGERATE_API_KEY;
+      const res = await fetch(`https://v6.exchangerate-api.com/v6/${apiKey}/latest/${baseCurrency}`);
+      const json = await res.json();
+      if (json.result !== 'success') throw new Error(json['error-type'] || 'Failed to fetch rate');
+      const liveRate = json.conversion_rates?.[newCurrency];
+      if (!liveRate) throw new Error(`No rate available for ${newCurrency}`);
+      const updatedFxRates = { ...data.fxRates, [newCurrency]: parseFloat((1 / liveRate).toFixed(6)) };
+      const sorted = [...(data.snapshots || [])].sort((a, b) => a.date.localeCompare(b.date));
+      const latestSnap = sorted[sorted.length - 1];
+      const updatedSnapshots = latestSnap
+        ? data.snapshots.map((s) => (s.id === latestSnap.id ? { ...s, fxRates: updatedFxRates } : s))
+        : data.snapshots;
+      persist({ ...data, displayCurrency: newCurrency, fxRates: updatedFxRates, snapshots: updatedSnapshots });
+    } catch (e) {
+      setDisplayFxError(`Could not fetch a live rate for ${newCurrency} — figures may be inaccurate until this succeeds. Try again or check your connection.`);
+    }
+    setDisplayFxLoading(false);
   };
 
   if (session === undefined) {
@@ -2251,11 +2284,13 @@ export default function App() {
             <div className="card">
               <div className="card-title">Display currency</div>
               <p className="muted-text">Choose which currency to show as the headline figure. Your data stays in {baseCurrency} — this is a display preference only.</p>
-              <select className="input select" value={displayCurrency} onChange={(e) => persist({ ...data, displayCurrency: e.target.value })}>
+              <select className="input select" value={displayCurrency} onChange={(e) => handleDisplayCurrencyChange(e.target.value)} disabled={displayFxLoading}>
                 {['GBP','AED','USD','EUR','INR','SGD','CAD','AUD','SAR','QAR','CHF','JPY','HKD','NZD','ZAR'].map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
+              {displayFxLoading && <p className="muted-text" style={{ marginTop: 6 }}>Updating rate…</p>}
+              {displayFxError && <p className="muted-text neg" style={{ marginTop: 6 }}>{displayFxError}</p>}
               <label className="checkbox-label" style={{ marginTop: 12 }}>
                 <input
                   type="checkbox"
