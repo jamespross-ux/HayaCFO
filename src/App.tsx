@@ -7,7 +7,7 @@ import {
 import {
   LayoutDashboard, MessageCircle, NotebookPen, Settings2, Send, Plus, Trash2,
   ChevronDown, ChevronUp, Sparkles, Copy, Check, Paperclip, X, FileText,
-  Eye, EyeOff, LogOut, Download,
+  Eye, EyeOff, LogOut, Download, Info,
 } from 'lucide-react';
 
 const supabase = createClient(
@@ -758,6 +758,7 @@ export default function App() {
   const [showFigures, setShowFigures] = useState(true);
   const [showStreakPopover, setShowStreakPopover] = useState(false);
   const [showScorePopover, setShowScorePopover] = useState(false);
+  const [showDatePopover, setShowDatePopover] = useState(false);
   const [fxLoading, setFxLoading] = useState(false);
   const [fxError, setFxError] = useState(null);
   const [displayFxLoading, setDisplayFxLoading] = useState(false);
@@ -1624,7 +1625,7 @@ export default function App() {
       <style>{baseCSS}</style>
 
       <header className="masthead">
-        <div className="masthead-eyebrow" onClick={() => { setShowStreakPopover(false); setShowScorePopover(false); }}>
+        <div className="masthead-eyebrow" onClick={() => { setShowStreakPopover(false); setShowScorePopover(false); setShowDatePopover(false); }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <svg width="28" height="28" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
               <rect x="33" y="42" width="14" height="48" rx="1.5" fill="#F7F3EA"/>
@@ -1745,7 +1746,21 @@ export default function App() {
           </div>
         </div>
 
-        <div className="masthead-date">{latest ? `As of ${latest.date}` : 'No data yet'}</div>
+        <div className="masthead-date" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          {latest ? `As of ${new Date(latest.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'No data yet'}
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowDatePopover((v) => !v); setShowScorePopover(false); setShowStreakPopover(false); }}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', color: 'inherit', opacity: 0.7 }}
+            aria-label="What does this date mean?"
+          >
+            <Info size={13} />
+          </button>
+          {showDatePopover && (
+            <div className="score-popover" onClick={(e) => e.stopPropagation()} style={{ left: 0, right: 'auto', width: 220 }}>
+              <p className="score-popover-body">Add new figures in the Update tab and tap "Save update" to see your new totals.</p>
+            </div>
+          )}
+        </div>
       </header>
 
       <nav className="tabs">
