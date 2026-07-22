@@ -821,15 +821,22 @@ export default function App() {
     }, { onConflict: 'user_id' });
   }
 
-  // Auto-refresh FX rates once per calendar day on load (silent, saves directly).
-  // The manual "Refresh live rates" button in Update still works on-demand on top
-  // of this. Self-contained (doesn't rely on fxCurrencies/baseCurrency from the
-  // post-gate destructure) so this hook can safely live here, before any
-  // conditional return, keeping hook order consistent across renders.
+  // Daily auto-tracking (once per calendar day, silent, saves directly).
+  // Instead of just refreshing rates on the existing latest entry, this creates
+  // a NEW dated snapshot each day — carrying forward the last-known balances/
+  // portfolio values/recurring figures, revalued at that day's live exchange
+  // rate. This means "since last update" and the history charts reflect real
+  // day-to-day movement even on days the user doesn't manually run an Update
+  // (currency drift shows up on its own; a manual Update still always takes
+  // precedence and safely merges into the same day's entry rather than
+  // duplicating, via the existing date-based upsert in saveSnapshot).
+  // History is capped at the most recent 90 days — anything older is purged
+  // on each run so this can't grow indefinitely.
+  const SNAPSHOT_RETENTION_DAYS = 90;
   useEffect(() => {
     if (!data || !data.disclaimerAccepted) return;
     const today = new Date().toISOString().slice(0, 10);
-    if (data.lastFxAutoRefresh === today) return; // already refreshed today
+    if (data.lastFxAutoRefresh === today) return; // already ran today
 
     const base = data.baseCurrency;
     const fxCurrencies = [...new Set([
@@ -838,34 +845,55 @@ export default function App() {
       data.displayCurrency,
       data.displaySecondaryCurrency,
     ])].filter((c) => c && c !== base);
-    if (fxCurrencies.length === 0) return; // nothing to refresh
+
+    const sorted = [...(data.snapshots || [])].sort((a, b) => a.date.localeCompare(b.date));
+    const latestSnap = sorted[sorted.length - 1];
+    if (!latestSnap) return; // nothing to carry forward yet — nothing to do
 
     (async () => {
-      try {
-        const apiKey = import.meta.env.VITE_EXCHANGERATE_API_KEY;
-        const res = await fetch(`https://v6.exchangerate-api.com/v6/${apiKey}/latest/${base}`);
-        const json = await res.json();
-        if (json.result !== 'success') return; // fail silently — not user-initiated
-        const rates = json.conversion_rates;
-        const updatedFxRates = { ...data.fxRates };
-        fxCurrencies.forEach((c) => {
-          if (rates[c]) updatedFxRates[c] = parseFloat((1 / rates[c]).toFixed(6));
-        });
-        // Also update the latest snapshot's stored FX rates so the dashboard
-        // recalculates immediately — without this, rateFor() uses the snapshot's
-        // older rates and the dashboard doesn't visually update until a manual Save.
-        const sorted = [...(data.snapshots || [])].sort((a, b) => a.date.localeCompare(b.date));
-        const latestSnap = sorted[sorted.length - 1];
-        const updatedSnapshots = latestSnap
-          ? data.snapshots.map((s) =>
-              s.id === latestSnap.id ? { ...s, fxRates: updatedFxRates } : s
-            )
-          : data.snapshots;
-        persist({ ...data, fxRates: updatedFxRates, lastFxAutoRefresh: today, snapshots: updatedSnapshots });
-      } catch (e) {
-        // Silent failure — this is a background convenience, not a user action.
-        // The manual refresh button in Update remains available if needed.
+      let updatedFxRates = { ...data.fxRates, ...latestSnap.fxRates };
+      if (fxCurrencies.length > 0) {
+        try {
+          const apiKey = import.meta.env.VITE_EXCHANGERATE_API_KEY;
+          const res = await fetch(`https://v6.exchangerate-api.com/v6/${apiKey}/latest/${base}`);
+          const json = await res.json();
+          if (json.result === 'success') {
+            const rates = json.conversion_rates;
+            fxCurrencies.forEach((c) => {
+              if (rates[c]) updatedFxRates[c] = parseFloat((1 / rates[c]).toFixed(6));
+            });
+          }
+        } catch (e) {
+          // Fetch failed — fall through and still log today's entry using
+          // whatever rates we already have, rather than skip the day entirely.
+        }
       }
+
+      // Carry today's entry forward from the latest known balances — a manual
+      // Update on the same day will safely overwrite this via date matching.
+      const todayEntry = {
+        id: uid(),
+        date: today,
+        balances: { ...latestSnap.balances },
+        portfolioValues: { ...latestSnap.portfolioValues },
+        fxRates: updatedFxRates,
+        note: '',
+        netRecurring: latestSnap.netRecurring || { in: 0, out: 0 },
+      };
+      const existingIdx = sorted.findIndex((s) => s.date === today);
+      let nextSnaps;
+      if (existingIdx >= 0) {
+        nextSnaps = [...sorted];
+        nextSnaps[existingIdx] = { ...nextSnaps[existingIdx], fxRates: updatedFxRates };
+      } else {
+        nextSnaps = [...sorted, todayEntry];
+      }
+
+      // Purge anything older than the retention window.
+      const cutoff = new Date(Date.now() - SNAPSHOT_RETENTION_DAYS * 86400000).toISOString().slice(0, 10);
+      nextSnaps = nextSnaps.filter((s) => s.date >= cutoff);
+
+      persist({ ...data, fxRates: updatedFxRates, lastFxAutoRefresh: today, snapshots: nextSnaps });
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.lastFxAutoRefresh, data?.disclaimerAccepted]);
